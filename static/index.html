@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🍌 水果新鮮度智慧管理系統</title>
+<style>
+  :root {
+    --green:  #22c55e;
+    --yellow: #eab308;
+    --orange: #f97316;
+    --red:    #ef4444;
+    --dark:   #1e293b;
+    --card:   #0f172a;
+    --border: #334155;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  .header {
+    text-align: center;
+    padding: 30px 0 20px;
+  }
+  .header h1 { font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; }
+  .header h1 span { color: #facc15; }
+  .header p { color: #94a3b8; margin-top: 6px; font-size: 0.95rem; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: rgba(15,23,42,0.8);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(10px);
+  }
+  .card-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 4px; height: 14px;
+    background: #3b82f6;
+    border-radius: 2px;
+  }
+
+  /* 相機卡片 */
+  .camera-card { grid-column: span 2; }
+  @media (max-width: 768px) { .camera-card { grid-column: span 1; } }
+
+  #live-image {
+    width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    border-radius: 12px;
+    background: #020617;
+    border: 1px solid var(--border);
+  }
+  .img-refresh-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .img-timestamp { font-size: 0.75rem; color: #475569; }
+
+  /* 感測器卡片 */
+  .sensor-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .sensor-item {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+  .sensor-icon { font-size: 1.8rem; margin-bottom: 6px; }
+  .sensor-label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sensor-value { font-size: 1.8rem; font-weight: 700; color: #f1f5f9; margin-top: 4px; }
+  .sensor-unit  { font-size: 0.85rem; color: #94a3b8; }
+  .mqtt-status  { display: flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #64748b; margin-top: 12px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+  .dot.online { background: #22c55e; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* 輸入控制 */
+  .control-group { margin-bottom: 20px; }
+  .control-group label {
+    display: block;
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .control-group input[type="range"] {
+    width: 100%;
+    accent-color: #3b82f6;
+    height: 6px;
+    cursor: pointer;
+  }
+  .slider-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #475569;
+    margin-top: 4px;
+  }
+  .slider-val {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #facc15;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .control-group input[type="number"] {
+    width: 100%;
+    background: #1e293b;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: #f1f5f9;
+    font-size: 1rem;
+    padding: 10px 14px;
+    outline: none;
+    transition: border-color .2s;
+  }
+  .control-group input[type="number"]:focus { border-color: #3b82f6; }
+
+  /* 按鈕 */
+  .btn-predict {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+    transition: opacity .2s, transform .1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-predict:hover { opacity: .9; }
+  .btn-predict:active { transform: scale(.98); }
+  .btn-predict:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-refresh {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: #94a3b8;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .btn-refresh:hover { border-color: #3b82f6; color: #3b82f6; }
+
+  /* 結果卡片 */
+  .result-card { grid-column: span 2; display: none; }
+  @media (max-width: 768px) { .result-card { grid-column: span 1; } }
+
+  .result-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+  .result-item {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--border);
+    transition: border-color .3s;
+  }
+  .result-label { font-size: 0.72rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .result-value { font-size: 2rem; font-weight: 800; margin: 8px 0 4px; }
+  .result-sub   { font-size: 0.8rem; color: #64748b; }
+
+  /* 腐敗進度條 */
+  .spoilage-bar-wrap { margin-top: 20px; }
+  .spoilage-bar-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #64748b; margin-bottom: 6px; }
+  .spoilage-bar-bg {
+    background: #1e293b;
+    border-radius: 999px;
+    height: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  .spoilage-bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 1s ease, background 1s ease;
+    background: var(--green);
+  }
+
+  /* 新鮮度標籤 */
+  .freshness-badge {
+    display: inline-block;
+    padding: 6px 18px;
+    border-radius: 999px;
+    font-size: 1rem;
+    font-weight: 700;
+    margin-top: 10px;
+    transition: background .5s;
+  }
+
+  /* 價格大卡 */
+  .price-card {
+    background: linear-gradient(135deg, #1e3a5f, #1e293b);
+    border: 1px solid #3b82f6;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    grid-column: span 2;
+  }
+  @media (max-width: 768px) { .price-card { grid-column: span 1; } }
+  .price-original { font-size: 1rem; color: #64748b; text-decoration: line-through; }
+  .price-final    { font-size: 3rem; font-weight: 900; color: #facc15; line-height: 1; }
+  .price-currency { font-size: 1.2rem; vertical-align: super; }
+  .discount-badge {
+    display: inline-block;
+    background: #dc2626;
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-left: 12px;
+    vertical-align: middle;
+  }
+
+  /* 載入動畫 */
+  .spinner {
+    width: 20px; height: 20px;
+    border: 3px solid rgba(255,255,255,.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-msg {
+    background: #450a0a;
+    border: 1px solid #dc2626;
+    color: #fca5a5;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 0.85rem;
+    margin-top: 12px;
+    display: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🍌 水果新鮮度 <span>智慧管理系統</span></h1>
+  <p>IoT 感測器 × 電腦視覺 × AI 模型 — 即時腐敗偵測與動態定價</p>
+</div>
+
+<div class="grid">
+
+  <!-- ① 即時相機 -->
+  <div class="card camera-card">
+    <div class="card-title">📷 即時相機畫面</div>
+    <img id="live-image" src="/api/image" alt="Live Camera" />
+    <div class="img-refresh-row">
+      <span class="img-timestamp" id="img-ts">最後更新：讀取中…</span>
+      <button class="btn-refresh" onclick="refreshImage()">🔄 刷新圖像</button>
+    </div>
+  </div>
+
+  <!-- ② 感測器 -->
+  <div class="card">
+    <div class="card-title">🌡️ 環境感測器 (MQTT)</div>
+    <div class="sensor-grid">
+      <div class="sensor-item">
+        <div class="sensor-icon">🌡️</div>
+        <div class="sensor-label">溫度</div>
+        <div class="sensor-value" id="temp-val">--</div>
+        <div class="sensor-unit">°C</div>
+      </div>
+      <div class="sensor-item">
+        <div class="sensor-icon">💧</div>
+        <div class="sensor-label">濕度</div>
+        <div class="sensor-value" id="hum-val">--</div>
+        <div class="sensor-unit">%</div>
+      </div>
+    </div>
+    <div class="mqtt-status">
+      <div class="dot" id="mqtt-dot"></div>
+      <span id="mqtt-status-text">等待 MQTT 數據…</span>
+    </div>
+  </div>
+
+  <!-- ③ 控制面板 -->
+  <div class="card">
+    <div class="card-title">⚙️ 預測參數設定</div>
+
+    <div class="control-group">
+      <label>儲存天數 (Storage Time)</label>
+      <div class="slider-val"><span id="storage-display">1</span> 天</div>
+      <input type="range" id="storage-slider" min="0" max="30" step="1" value="1"
+             oninput="document.getElementById('storage-display').textContent=this.value" />
+      <div class="slider-row"><span>0 天</span><span>30 天</span></div>
+    </div>
+
+    <div class="control-group">
+      <label>商品原始售價（元）</label>
+      <input type="number" id="base-price" value="100" min="1" step="1" placeholder="例：100" />
+    </div>
+
+    <button class="btn-predict" id="predict-btn" onclick="runPredict()">
+      <span>🔍 執行 AI 預測</span>
+      <div class="spinner" id="spinner"></div>
+    </button>
+    <div class="error-msg" id="error-msg"></div>
+  </div>
+
+  <!-- ④ 結果展示 -->
+  <div class="card result-card" id="result-card">
+    <div class="card-title">📊 AI 分析結果</div>
+    <div class="result-grid">
+
+      <div class="result-item" id="spoilage-item">
+        <div class="result-label">腐敗指數</div>
+        <div class="result-value" id="spoilage-val" style="color:#22c55e">--</div>
+        <div class="result-sub">/ 100</div>
+        <div id="freshness-badge" class="freshness-badge" style="background:#166534;color:#bbf7d0">--</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">溫度</div>
+        <div class="result-value" id="r-temp" style="color:#38bdf8">--</div>
+        <div class="result-sub">°C</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">濕度</div>
+        <div class="result-value" id="r-hum" style="color:#818cf8">--</div>
+        <div class="result-sub">%</div>
+      </div>
+
+      <div class="result-item">
+        <div class="result-label">儲存天數</div>
+        <div class="result-value" id="r-storage" style="color:#fb923c">--</div>
+        <div class="result-sub">天</div>
+      </div>
+
+    </div>
+
+    <div class="spoilage-bar-wrap">
+      <div class="spoilage-bar-label">
+        <span>新鮮</span><span>腐敗</span>
+      </div>
+      <div class="spoilage-bar-bg">
+        <div class="spoilage-bar-fill" id="spoilage-bar" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ 定價結果 -->
+  <div class="price-card" id="price-card" style="display:none;">
+    <div class="card-title" style="justify-content:center;">💰 動態定價結果</div>
+    <div class="price-original">原價：<span id="price-original">--</span> 元</div>
+    <div style="margin-top:10px;">
+      <span class="price-currency">$</span>
+      <span class="price-final" id="price-final">--</span>
+      <span class="discount-badge" id="discount-badge">--</span>
+    </div>
+    <div style="margin-top:16px; color:#64748b; font-size:0.85rem;">
+      依腐敗指數自動計算折扣 · 即時更新
+    </div>
+  </div>
+
+</div><!-- /grid -->
+
+<script>
+// ── 感測器輪詢 (每 6 秒) ──────────────────────────────────────────────────
+let sensorData = { temperature: null, humidity: null };
+
+async function fetchSensor() {
+  try {
+    const r = await fetch('/api/sensor');
+    const d = await r.json();
+    if (d.temperature !== null && d.temperature !== undefined) {
+      sensorData = d;
+      document.getElementById('temp-val').textContent = d.temperature.toFixed(1);
+      document.getElementById('hum-val').textContent  = d.humidity.toFixed(1);
+      document.getElementById('mqtt-dot').classList.add('online');
+      document.getElementById('mqtt-status-text').textContent =
+        '已連線 · 最後更新 ' + (d.timestamp || '--');
+    } else {
+      document.getElementById('mqtt-status-text').textContent = '等待 M5GO 裝置上線…';
+    }
+  } catch(e) {
+    document.getElementById('mqtt-status-text').textContent = '感測器連線失敗';
+  }
+}
+fetchSensor();
+setInterval(fetchSensor, 6000);
+
+// ── 圖像刷新 ──────────────────────────────────────────────────────────────
+function refreshImage() {
+  const img = document.getElementById('live-image');
+  img.src = '/api/image?t=' + Date.now();
+  document.getElementById('img-ts').textContent =
+    '最後更新：' + new Date().toLocaleTimeString('zh-TW');
+}
+// 每 10 秒自動刷新圖像
+setInterval(refreshImage, 10000);
+document.getElementById('live-image').onload = () => {
+  document.getElementById('img-ts').textContent =
+    '最後更新：' + new Date().toLocaleTimeString('zh-TW');
+};
+
+// ── AI 預測 ───────────────────────────────────────────────────────────────
+async function runPredict() {
+  const btn     = document.getElementById('predict-btn');
+  const spinner = document.getElementById('spinner');
+  const errMsg  = document.getElementById('error-msg');
+  errMsg.style.display = 'none';
+
+  const storageTime = parseFloat(document.getElementById('storage-slider').value);
+  const basePrice   = parseFloat(document.getElementById('base-price').value) || 100;
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+
+  try {
+    const body = {
+      storage_time: storageTime,
+      base_price:   basePrice
+    };
+    // 若感測器已有數據，直接帶入（避免伺服器端快取問題）
+    if (sensorData.temperature !== null) {
+      body.temperature = sensorData.temperature;
+      body.humidity    = sensorData.humidity;
+    }
+
+    const r = await fetch('/api/predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if (!r.ok) {
+      const err = await r.json();
+      throw new Error(err.detail || `HTTP ${r.status}`);
+    }
+
+    const d = await r.json();
+    showResult(d);
+  } catch(e) {
+    errMsg.textContent = '❌ 預測失敗：' + e.message;
+    errMsg.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+  }
+}
+
+function showResult(d) {
+  // 腐敗指數
+  const spoilage = d.spoilage_level;
+  document.getElementById('spoilage-val').textContent = spoilage.toFixed(1);
+  document.getElementById('spoilage-val').style.color  = d.freshness_color;
+  document.getElementById('freshness-badge').textContent = d.freshness_label;
+  document.getElementById('freshness-badge').style.background = d.freshness_color + '33';
+  document.getElementById('freshness-badge').style.color      = d.freshness_color;
+
+  // 進度條
+  const bar = document.getElementById('spoilage-bar');
+  bar.style.width      = Math.min(spoilage, 100) + '%';
+  bar.style.background = spoilage < 40 ? '#22c55e' :
+                         spoilage < 60 ? '#eab308' :
+                         spoilage < 80 ? '#f97316' : '#ef4444';
+
+  // 感測器數值
+  document.getElementById('r-temp').textContent    = d.sensor.temperature;
+  document.getElementById('r-hum').textContent     = d.sensor.humidity;
+  document.getElementById('r-storage').textContent = d.sensor.storage_time;
+
+  // 定價
+  document.getElementById('price-original').textContent = d.base_price;
+  document.getElementById('price-final').textContent    = d.final_price;
+  document.getElementById('discount-badge').textContent =
+    d.discount_pct > 0 ? `-${d.discount_pct}%` : '無折扣';
+
+  // 顯示結果卡片
+  document.getElementById('result-card').style.display = 'block';
+  document.getElementById('price-card').style.display  = 'block';
+  document.getElementById('result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+</body>
+</html>
