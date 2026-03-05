@@ -47,13 +47,14 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"Using device: {DEVICE}")
 
 # ─── 折扣設定（可依需求調整）────────────────────────────────────────────────
-# spoilage_level 預設為 0~100 的數值；若你的訓練資料是 0~1，請把下表除以 100
+# spoilage_level 範圍：1 ~ 20 (1=最新鮮, 20=最腐敗)
+# 修正後的閾值表，對應 1-20 的範圍
 DISCOUNT_TABLE = [
-    (20,  0),    # 0~20   → 無折扣
-    (40,  10),   # 20~40  → 9折
-    (60,  25),   # 40~60  → 75折
-    (80,  40),   # 60~80  → 6折
-    (100, 60),   # 80~100 → 4折
+    (4,   0),    # 1~4    → 無折扣 (對應原 0~20%)
+    (8,   10),   # 4~8    → 9折   (對應原 20~40%)
+    (12,  25),   # 8~12   → 75折  (對應原 40~60%)
+    (16,  40),   # 12~16  → 6折   (對應原 60~80%)
+    (20,  60),   # 16~20  → 4折   (對應原 80~100%)
 ]
 
 def calc_discount(spoilage: float) -> int:
@@ -67,6 +68,9 @@ def calc_discount(spoilage: float) -> int:
 latest_sensor: dict = {"temperature": None, "humidity": None, "timestamp": None}
 model: HybridModel  = None
 scaler              = None
+auto_predict_interval = 0  # 0 = 關閉, 單位: 分鐘
+auto_predict_thread = None
+stop_auto_predict = threading.Event()
 
 # ─── 圖像前處理 ──────────────────────────────────────────────────────────────
 infer_transform = transforms.Compose([
@@ -221,24 +225,29 @@ async def predict(req: PredictRequest):
         prediction = model(img_tensor, sensor_tensor).item()
         logger.info(f"Model raw prediction: {prediction}")
 
-    # 限制在合理範圍（依訓練資料決定；預設 0~100）
-    spoilage = float(np.clip(prediction, 0, 100))
+    # [NEW] 應用動態定價公式: Q_pricing(t) = Q_human(t) * (1 - r_pricing)
+    r_pricing = 0.21
+    spoilage = prediction * (1 - r_pricing)
 
+    # [NEW] 限制在合理範圍 1-20
+    spoilage = float(np.clip(spoilage, 1.0, 20.0))
+    
     # ── 4. 計算折扣與售價 ──
+    # 使用修正後的 DISCOUNT_TABLE (範圍 1-20) 直接查表
     discount_pct = calc_discount(spoilage)
     final_price  = round(req.base_price * (1 - discount_pct / 100), 2)
 
-    # ── 5. 新鮮程度標籤 ──
-    if spoilage < 20:
+    # ── 5. 新鮮程度標籤 (範圍 1-20) ──
+    if spoilage < 4:
         freshness_label = "非常新鮮 🟢"
         freshness_color = "#22c55e"
-    elif spoilage < 40:
+    elif spoilage < 8:
         freshness_label = "新鮮 🟡"
         freshness_color = "#eab308"
-    elif spoilage < 60:
+    elif spoilage < 12:
         freshness_label = "輕微腐敗 🟠"
         freshness_color = "#f97316"
-    elif spoilage < 80:
+    elif spoilage < 16:
         freshness_label = "中度腐敗 🔴"
         freshness_color = "#ef4444"
     else:
@@ -263,6 +272,54 @@ async def predict(req: PredictRequest):
         }
     }
 
+
+class SettingsRequest(BaseModel):
+    interval_minutes: int
+
+@app.post("/api/settings")
+async def update_settings(req: SettingsRequest):
+    """更新自動預測的時間間隔"""
+    global auto_predict_interval, stop_auto_predict, auto_predict_thread
+    
+    new_interval = req.interval_minutes
+    if new_interval < 0:
+        raise HTTPException(status_code=400, detail="Invalid interval")
+        
+    logger.info(f"Updating auto-predict interval to {new_interval} minutes")
+    
+    # 如果原本有執行中的執行緒，先通知停止
+    if auto_predict_thread and auto_predict_thread.is_alive():
+        stop_auto_predict.set()
+        # 不等待 join，避免卡住 API 回應，讓舊執行緒自然結束
+    
+    auto_predict_interval = new_interval
+    
+    if auto_predict_interval > 0:
+        stop_auto_predict.clear()
+        auto_predict_thread = threading.Thread(target=auto_predict_loop, args=(auto_predict_interval,), daemon=True)
+        auto_predict_thread.start()
+        logger.info("Auto-predict thread started")
+    
+    return {"status": "ok", "interval_minutes": auto_predict_interval}
+
+def auto_predict_loop(interval_minutes):
+    """背景執行緒：定時執行預測 (模擬)"""
+    logger.info(f"Auto-predict loop started. Interval: {interval_minutes}m")
+    while not stop_auto_predict.is_set():
+        # 這裡僅作示範：每隔 interval_minutes 執行一次
+        # 實際上自動預測的結果通常要寫入資料庫或推送到前端 (WebSocket)
+        # 由於目前架構是前端 polling 或主動請求，這裡我們先記錄 Log 代表執行了預測
+        logger.info(f"⏰ Auto-predict triggered! (Interval: {interval_minutes}m)")
+        
+        # 可以在這裡呼叫內部的預測邏輯並儲存結果
+        # ... predict logic ...
+        
+        # 等待下一次執行 (分段 sleep 以便能快速回應 stop)
+        for _ in range(interval_minutes * 60):
+            if stop_auto_predict.is_set():
+                logger.info("Auto-predict loop stopping...")
+                return
+            time.sleep(1)
 
 # ─── 靜態網頁 ─────────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")

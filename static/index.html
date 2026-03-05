@@ -326,6 +326,17 @@
     <div class="card-title">⚙️ 預測參數設定</div>
 
     <div class="control-group">
+      <label>自動預測頻率</label>
+      <select id="auto-predict-select" onchange="updateAutoPredict()" style="width:100%; padding:10px; background:#1e293b; color:#fff; border-radius:8px; border:1px solid #334155;">
+        <option value="0">手動模式 (關閉自動)</option>
+        <option value="5">每 5 分鐘</option>
+        <option value="10">每 10 分鐘</option>
+        <option value="15">每 15 分鐘</option>
+        <option value="30">每 30 分鐘</option>
+      </select>
+    </div>
+
+    <div class="control-group">
       <label>儲存天數 (Storage Time)</label>
       <div class="slider-val"><span id="storage-display">1</span> 天</div>
       <input type="range" id="storage-slider" min="0" max="30" step="1" value="1"
@@ -442,6 +453,29 @@ document.getElementById('live-image').onload = () => {
     '最後更新：' + new Date().toLocaleTimeString('zh-TW');
 };
 
+// ── 自動預測設定 ──────────────────────────────────────────────────────────────
+async function updateAutoPredict() {
+  const select = document.getElementById('auto-predict-select');
+  const minutes = parseInt(select.value, 10);
+  
+  try {
+    const r = await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interval_minutes: minutes })
+    });
+    const d = await r.json();
+    console.log('Auto-predict set to:', d.interval_minutes);
+    
+    // 如果開啟了自動預測，立即執行一次
+    if (d.interval_minutes > 0) {
+       runPredict();
+    }
+  } catch(e) {
+    console.error('Failed to update settings:', e);
+  }
+}
+
 // ── AI 預測 ───────────────────────────────────────────────────────────────
 async function runPredict() {
   const btn     = document.getElementById('predict-btn');
@@ -489,20 +523,26 @@ async function runPredict() {
 }
 
 function showResult(d) {
-  // 腐敗指數
+  // 腐敗指數 (範圍 1-20)
   const spoilage = d.spoilage_level;
+  const spoilageMax = 20.0;
+  const percentage = (spoilage / spoilageMax) * 100;
+  
   document.getElementById('spoilage-val').textContent = spoilage.toFixed(1);
   document.getElementById('spoilage-val').style.color  = d.freshness_color;
+  
+  // 更新顯示文字為 "指數 / 20"
+  const subLabel = document.querySelector('#spoilage-item .result-sub');
+  if(subLabel) subLabel.textContent = '/ 20';
+  
   document.getElementById('freshness-badge').textContent = d.freshness_label;
   document.getElementById('freshness-badge').style.background = d.freshness_color + '33';
   document.getElementById('freshness-badge').style.color      = d.freshness_color;
 
-  // 進度條
+  // 進度條 (使用百分比)
   const bar = document.getElementById('spoilage-bar');
-  bar.style.width      = Math.min(spoilage, 100) + '%';
-  bar.style.background = spoilage < 40 ? '#22c55e' :
-                         spoilage < 60 ? '#eab308' :
-                         spoilage < 80 ? '#f97316' : '#ef4444';
+  bar.style.width      = Math.min(percentage, 100) + '%';
+  bar.style.background = d.freshness_color;
 
   // 感測器數值
   document.getElementById('r-temp').textContent    = d.sensor.temperature;
@@ -512,13 +552,26 @@ function showResult(d) {
   // 定價
   document.getElementById('price-original').textContent = d.base_price;
   document.getElementById('price-final').textContent    = d.final_price;
-  document.getElementById('discount-badge').textContent =
-    d.discount_pct > 0 ? `-${d.discount_pct}%` : '無折扣';
+  
+  const discountEl = document.getElementById('discount-badge');
+  if (d.discount_pct > 0) {
+    discountEl.textContent = `-${d.discount_pct}% (打${10 - d.discount_pct/10}折)`;
+    discountEl.style.display = 'inline-block';
+    discountEl.style.background = '#dc2626';
+  } else {
+    discountEl.textContent = '無折扣';
+    discountEl.style.background = '#64748b';
+  }
 
   // 顯示結果卡片
-  document.getElementById('result-card').style.display = 'block';
-  document.getElementById('price-card').style.display  = 'block';
-  document.getElementById('result-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const resCard = document.getElementById('result-card');
+  const priceCard = document.getElementById('price-card');
+  
+  if (resCard.style.display === 'none') {
+      resCard.style.display = 'block';
+      priceCard.style.display = 'block';
+      resCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 </script>
 </body>
