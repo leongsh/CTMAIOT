@@ -365,6 +365,12 @@
         <div class="result-label">腐敗指數</div>
         <div class="result-value" id="spoilage-val" style="color:#22c55e">--</div>
         <div class="result-sub">/ 100</div>
+        
+        <!-- [NEW] 顯示原始預測值 -->
+        <div id="raw-spoilage-wrap" style="margin-top:6px; font-size:0.75rem; color:#94a3b8; border-top:1px solid #334155; padding-top:4px;">
+          原始預測: <span id="q-human-val" style="color:#e2e8f0; font-weight:700;">--</span>
+        </div>
+        
         <div id="freshness-badge" class="freshness-badge" style="background:#166534;color:#bbf7d0">--</div>
       </div>
 
@@ -523,25 +529,31 @@ async function runPredict() {
 }
 
 function showResult(d) {
-  // 腐敗指數 (範圍 1-20)
+  // 腐敗指數 (範圍 0-100)
   const spoilage = d.spoilage_level;
-  const spoilageMax = 20.0;
-  const percentage = (spoilage / spoilageMax) * 100;
+  const q_human  = d.q_human;
   
+  // 更新主要指數
   document.getElementById('spoilage-val').textContent = spoilage.toFixed(1);
   document.getElementById('spoilage-val').style.color  = d.freshness_color;
   
-  // 更新顯示文字為 "指數 / 20"
+  // 更新原始指數
+  const qHumanEl = document.getElementById('q-human-val');
+  if(qHumanEl) {
+    qHumanEl.textContent = q_human.toFixed(1);
+  }
+  
+  // 恢復顯示為 / 100
   const subLabel = document.querySelector('#spoilage-item .result-sub');
-  if(subLabel) subLabel.textContent = '/ 20';
+  if(subLabel) subLabel.textContent = '/ 100';
   
   document.getElementById('freshness-badge').textContent = d.freshness_label;
   document.getElementById('freshness-badge').style.background = d.freshness_color + '33';
   document.getElementById('freshness-badge').style.color      = d.freshness_color;
 
-  // 進度條 (使用百分比)
+  // 進度條 (0-100)
   const bar = document.getElementById('spoilage-bar');
-  bar.style.width      = Math.min(percentage, 100) + '%';
+  bar.style.width      = Math.min(spoilage, 100) + '%';
   bar.style.background = d.freshness_color;
 
   // 感測器數值

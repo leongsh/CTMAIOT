@@ -47,14 +47,13 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 logger.info(f"Using device: {DEVICE}")
 
 # ─── 折扣設定（可依需求調整）────────────────────────────────────────────────
-# spoilage_level 範圍：1 ~ 20 (1=最新鮮, 20=最腐敗)
-# 修正後的閾值表，對應 1-20 的範圍
+# spoilage_level 範圍：0 ~ 100
 DISCOUNT_TABLE = [
-    (4,   0),    # 1~4    → 無折扣 (對應原 0~20%)
-    (8,   10),   # 4~8    → 9折   (對應原 20~40%)
-    (12,  25),   # 8~12   → 75折  (對應原 40~60%)
-    (16,  40),   # 12~16  → 6折   (對應原 60~80%)
-    (20,  60),   # 16~20  → 4折   (對應原 80~100%)
+    (20,  0),    # 0~20   → 無折扣
+    (40,  10),   # 20~40  → 9折
+    (60,  25),   # 40~60  → 75折
+    (80,  40),   # 60~80  → 6折
+    (100, 60),   # 80~100 → 4折
 ]
 
 def calc_discount(spoilage: float) -> int:
@@ -226,28 +225,30 @@ async def predict(req: PredictRequest):
         logger.info(f"Model raw prediction: {prediction}")
 
     # [NEW] 應用動態定價公式: Q_pricing(t) = Q_human(t) * (1 - r_pricing)
+    # Q_human(t) 即為模型輸出的原始腐敗值
     r_pricing = 0.21
-    spoilage = prediction * (1 - r_pricing)
+    q_human   = float(np.clip(prediction, 0, 100))  # 原始預測 (0-100)
+    q_pricing = q_human * (1 - r_pricing)           # 定價用腐敗值 (也會變小)
 
-    # [NEW] 限制在合理範圍 1-20
-    spoilage = float(np.clip(spoilage, 1.0, 20.0))
+    # 雖然移除 1-20 強制範圍，但理論上仍需限制在 0-100 以內 (不可能負值或超過100)
+    spoilage = float(np.clip(q_pricing, 0, 100))
     
     # ── 4. 計算折扣與售價 ──
-    # 使用修正後的 DISCOUNT_TABLE (範圍 1-20) 直接查表
+    # 使用標準 0-100 的 DISCOUNT_TABLE
     discount_pct = calc_discount(spoilage)
     final_price  = round(req.base_price * (1 - discount_pct / 100), 2)
 
-    # ── 5. 新鮮程度標籤 (範圍 1-20) ──
-    if spoilage < 4:
+    # ── 5. 新鮮程度標籤 (範圍 0-100) ──
+    if spoilage < 20:
         freshness_label = "非常新鮮 🟢"
         freshness_color = "#22c55e"
-    elif spoilage < 8:
+    elif spoilage < 40:
         freshness_label = "新鮮 🟡"
         freshness_color = "#eab308"
-    elif spoilage < 12:
+    elif spoilage < 60:
         freshness_label = "輕微腐敗 🟠"
         freshness_color = "#f97316"
-    elif spoilage < 16:
+    elif spoilage < 80:
         freshness_label = "中度腐敗 🔴"
         freshness_color = "#ef4444"
     else:
@@ -255,7 +256,8 @@ async def predict(req: PredictRequest):
         freshness_color = "#7f1d1d"
 
     return {
-        "spoilage_level":  round(spoilage, 2),
+        "spoilage_level":  round(spoilage, 2), # Q_pricing
+        "q_human":         round(q_human, 2),  # Q_human (原始預測)
         "freshness_label": freshness_label,
         "freshness_color": freshness_color,
         "discount_pct":    discount_pct,
