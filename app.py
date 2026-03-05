@@ -198,13 +198,28 @@ async def predict(req: PredictRequest):
     img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)  # (1,3,128,128)
 
     # ── 2. 感測器正規化 ──
-    raw_sensor = np.array([[temp, hum, req.storage_time]], dtype=np.float32)
+    # [FIX] 檢查並修正濕度範圍 (若 > 1 則除以 100轉為 0~1)
+    model_hum = hum
+    if model_hum is not None and model_hum > 1.0:
+        model_hum = model_hum / 100.0
+    
+    # [FIX] 檢查並修正儲存時間 (假設輸入為天數，模型訓練為小時)
+    # Scaler mean for storage_time is ~102.5, suggesting hours.
+    # Input is labeled "儲存天數" (days).
+    storage_hours = req.storage_time * 24.0
+
+    logger.info(f"Raw sensor input (adjusted): temp={temp}, hum={model_hum}, storage_hours={storage_hours}")
+    
+    raw_sensor = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
     scaled_sensor = scaler.transform(raw_sensor)
+    logger.info(f"Scaled sensor: {scaled_sensor}")
+
     sensor_tensor = torch.tensor(scaled_sensor, dtype=torch.float32).to(DEVICE)  # (1,3)
 
     # ── 3. 模型推理 ──
     with torch.no_grad():
         prediction = model(img_tensor, sensor_tensor).item()
+        logger.info(f"Model raw prediction: {prediction}")
 
     # 限制在合理範圍（依訓練資料決定；預設 0~100）
     spoilage = float(np.clip(prediction, 0, 100))
