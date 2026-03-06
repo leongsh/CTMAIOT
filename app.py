@@ -623,6 +623,11 @@ async def root():
     return FileResponse("static/login.html")
 
 
+@app.get("/login")
+async def login_page():
+    return FileResponse("static/login.html")
+
+
 @app.get("/app")
 async def app_page():
     return FileResponse("static/app.html")
