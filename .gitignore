@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+data/
+*.db
+write_html.py
+test_quality.py
+test_local.py

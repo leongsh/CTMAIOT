@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AIoT Smart Shelf — 後台管理</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--orange:#f97316;--red:#ef4444;--purple:#8b5cf6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e8f0;min-height:100vh}
+.navbar{background:rgba(15,23,42,.97);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(10px)}
+.nav-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1rem;color:#f1f5f9}
+.nav-badge{background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.nav-right{display:flex;align-items:center;gap:10px}
+.btn-nav{background:transparent;border:1px solid var(--border);color:#94a3b8;padding:6px 14px;border-radius:8px;font-size:.78rem;cursor:pointer;transition:all .2s}
+.btn-nav:hover{border-color:var(--blue);color:var(--blue)}
+.main{max-width:1400px;margin:0 auto;padding:24px}
+/* ── 統計卡片 ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+.stat-icon{font-size:1.8rem;margin-bottom:8px}
+.stat-label{font-size:.72rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat-val{font-size:2rem;font-weight:900;color:#f1f5f9;line-height:1}
+.stat-sub{font-size:.72rem;color:#64748b;margin-top:4px}
+/* ── 區塊 ── */
+.section{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:20px}
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.section-title{font-size:.9rem;font-weight:700;color:#f1f5f9;display:flex;align-items:center;gap:8px}
+.section-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--blue);border-radius:2px}
+.btn-primary{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;transition:opacity .2s}
+.btn-primary:hover{opacity:.9}
+.btn-danger{background:#dc2626;color:#fff;border:none;padding:5px 12px;border-radius:6px;font-size:.75rem;cursor:pointer}
+.btn-danger:hover{background:#b91c1c}
+.btn-edit{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3);padding:5px 12px;border-radius:6px;font-size:.75rem;cursor:pointer}
+.btn-edit:hover{background:var(--blue);color:#fff}
+/* ── 表格 ── */
+.data-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.data-table th{background:#0f172a;color:#64748b;padding:10px 12px;text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid var(--border)}
+.data-table td{padding:10px 12px;border-bottom:1px solid rgba(51,65,85,.5);color:#e2e8f0;vertical-align:middle}
+.data-table tr:hover td{background:rgba(59,130,246,.04)}
+.data-table tr:last-child td{border-bottom:none}
+.badge{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.badge-admin{background:rgba(139,92,246,.2);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)}
+.badge-operator{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.badge-active{background:#166534;color:#bbf7d0}
+.badge-inactive{background:#1e293b;color:#64748b;border:1px solid var(--border)}
+.badge-maintenance{background:#713f12;color:#fde68a}
+/* ── 模態框 ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:.78rem;color:#94a3b8;margin-bottom:5px;font-weight:500}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:#0f172a;border:1px solid var(--border);border-radius:8px;color:#f1f5f9;font-size:.88rem;padding:9px 12px;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group select:focus{border-color:var(--blue)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.btn-cancel{background:transparent;border:1px solid var(--border);color:#94a3b8;padding:8px 16px;border-radius:8px;font-size:.82rem;cursor:pointer}
+.btn-cancel:hover{border-color:#64748b;color:#f1f5f9}
+/* ── 最近記錄 ── */
+.recent-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(51,65,85,.5);font-size:.8rem}
+.recent-item:last-child{border-bottom:none}
+.recent-node{color:#94a3b8}
+.recent-quality{font-weight:700;color:#facc15}
+.recent-discount{color:#ef4444;font-weight:700}
+.recent-time{color:#475569;font-size:.72rem}
+/* ── 空狀態 ── */
+.empty-state{text-align:center;padding:40px;color:#475569}
+.empty-state .icon{font-size:2.5rem;margin-bottom:10px}
+/* ── 頁籤 ── */
+.admin-tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0}
+.admin-tab{padding:10px 18px;background:transparent;border:none;color:#64748b;font-size:.82rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}
+.admin-tab.active{color:var(--blue);border-bottom-color:var(--blue)}
+.admin-pane{display:none}
+.admin-pane.active{display:block}
+</style>
+</head>
+<body>
+
+<!-- 頂部導航 -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <span>⚙️</span>
+    AIoT Smart Shelf — 後台管理
+    <span class="nav-badge">Admin</span>
+  </div>
+  <div class="nav-right">
+    <button class="btn-nav" onclick="window.location.href='/app'">← 返回應用層</button>
+    <button class="btn-nav" onclick="doLogout()">登出</button>
+  </div>
+</nav>
+
+<div class="main">
+  <!-- 統計卡片 -->
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card" style="--accent:#3b82f6">
+      <div class="stat-icon">🗺️</div>
+      <div class="stat-label">總節點數</div>
+      <div class="stat-val" id="s-total-nodes">--</div>
+    </div>
+    <div class="stat-card" style="--accent:#22c55e">
+      <div class="stat-icon">✅</div>
+      <div class="stat-label">線上節點</div>
+      <div class="stat-val" id="s-active-nodes">--</div>
+    </div>
+    <div class="stat-card" style="--accent:#facc15">
+      <div class="stat-icon">📊</div>
+      <div class="stat-label">今日評估次數</div>
+      <div class="stat-val" id="s-total-pred">--</div>
+    </div>
+    <div class="stat-card" style="--accent:#8b5cf6">
+      <div class="stat-icon">🌡️</div>
+      <div class="stat-label">感測器記錄</div>
+      <div class="stat-val" id="s-total-readings">--</div>
+    </div>
+    <div class="stat-card" style="--accent:#f97316">
+      <div class="stat-icon">⭐</div>
+      <div class="stat-label">24h 平均品質</div>
+      <div class="stat-val" id="s-avg-quality">--</div>
+    </div>
+    <div class="stat-card" style="--accent:#ef4444">
+      <div class="stat-icon">🏷️</div>
+      <div class="stat-label">24h 平均折扣</div>
+      <div class="stat-val" id="s-avg-discount">--</div>
+      <div class="stat-sub">%</div>
+    </div>
+  </div>
+
+  <!-- 頁籤 -->
+  <div class="admin-tabs">
+    <button class="admin-tab active" onclick="switchAdminTab('dashboard')">儀表板</button>
+    <button class="admin-tab" onclick="switchAdminTab('nodes')">節點管理</button>
+    <button class="admin-tab" onclick="switchAdminTab('users')">用戶管理</button>
+    <button class="admin-tab" onclick="switchAdminTab('records')">數據記錄</button>
+  </div>
+
+  <!-- 儀表板 -->
+  <div class="admin-pane active" id="pane-dashboard">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">最近評估記錄（全節點）</div>
+        <button class="btn-primary" onclick="loadDashboard()">🔄 刷新</button>
+      </div>
+      <div id="recent-list">
+        <div class="empty-state"><div class="icon">📋</div><div>載入中…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 節點管理 -->
+  <div class="admin-pane" id="pane-nodes">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">貨架節點管理</div>
+        <button class="btn-primary" onclick="openNodeModal()">+ 新增節點</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>節點 ID</th><th>名稱</th><th>位置</th><th>產品</th>
+            <th>初始 DSL</th><th>原始售價</th><th>狀態</th><th>操作</th>
+          </tr>
+        </thead>
+        <tbody id="nodes-tbody">
+          <tr><td colspan="8" class="empty-state">載入中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 用戶管理 -->
+  <div class="admin-pane" id="pane-users">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">用戶帳號管理</div>
+        <button class="btn-primary" onclick="openUserModal()">+ 新增用戶</button>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr><th>ID</th><th>帳號</th><th>顯示名稱</th><th>角色</th><th>建立時間</th><th>最後登入</th><th>操作</th></tr>
+        </thead>
+        <tbody id="users-tbody">
+          <tr><td colspan="7" class="empty-state">載入中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 數據記錄 -->
+  <div class="admin-pane" id="pane-records">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">評估數據記錄</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="records-node-filter" onchange="loadRecords()" style="background:#0f172a;border:1px solid var(--border);color:#e2e8f0;padding:6px 10px;border-radius:7px;font-size:.8rem">
+            <option value="">全部節點</option>
+          </select>
+          <button class="btn-primary" onclick="loadRecords()">🔄 刷新</button>
+        </div>
+      </div>
+      <table class="data-table" id="records-table">
+        <thead>
+          <tr><th>時間</th><th>節點</th><th>產品</th><th>溫度</th><th>濕度</th><th>Q_combined</th><th>DSL(天)</th><th>折扣</th><th>最終價</th></tr>
+        </thead>
+        <tbody id="records-tbody">
+          <tr><td colspan="9" class="empty-state">載入中…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 節點模態框 -->
+<div class="modal-overlay" id="node-modal">
+  <div class="modal">
+    <div class="modal-title">🗺️ <span id="node-modal-title">新增節點</span></div>
+    <input type="hidden" id="edit-node-id"/>
+    <div class="form-row">
+      <div class="form-group">
+        <label>節點 ID *</label>
+        <input type="text" id="f-node-id" placeholder="NODE_001"/>
+      </div>
+      <div class="form-group">
+        <label>節點名稱 *</label>
+        <input type="text" id="f-node-name" placeholder="智慧貨架 #1"/>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>位置名稱</label>
+      <input type="text" id="f-location" placeholder="倉庫 A 區 - 第 3 排"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>緯度</label>
+        <input type="number" id="f-lat" value="22.3193" step="0.0001"/>
+      </div>
+      <div class="form-group">
+        <label>經度</label>
+        <input type="number" id="f-lng" value="114.1694" step="0.0001"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>監測產品</label>
+        <select id="f-product">
+          <option value="banana">🍌 香蕉</option>
+          <option value="apple">🍎 蘋果</option>
+          <option value="tomato">🍅 番茄</option>
+          <option value="lettuce">🥬 萵苣</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>初始 DSL（天）</label>
+        <input type="number" id="f-initial-dsl" value="10" min="1" max="60"/>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>原始售價（元）</label>
+        <input type="number" id="f-base-price" value="100" min="1"/>
+      </div>
+      <div class="form-group">
+        <label>狀態</label>
+        <select id="f-status">
+          <option value="active">線上</option>
+          <option value="inactive">離線</option>
+          <option value="maintenance">維護中</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>相機 URL</label>
+      <input type="text" id="f-camera-url" placeholder="https://..."/>
+    </div>
+    <div class="form-group">
+      <label>MQTT 主題</label>
+      <input type="text" id="f-mqtt-topic" placeholder="m5go/ISM/env"/>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('node-modal')">取消</button>
+      <button class="btn-primary" onclick="saveNode()">💾 儲存節點</button>
+    </div>
+  </div>
+</div>
+
+<!-- 用戶模態框 -->
+<div class="modal-overlay" id="user-modal">
+  <div class="modal">
+    <div class="modal-title">👤 新增用戶</div>
+    <div class="form-group">
+      <label>帳號 *</label>
+      <input type="text" id="f-username" placeholder="username"/>
+    </div>
+    <div class="form-group">
+      <label>密碼 *</label>
+      <input type="password" id="f-password" placeholder="至少 6 位"/>
+    </div>
+    <div class="form-group">
+      <label>顯示名稱</label>
+      <input type="text" id="f-display-name" placeholder="操作員 A"/>
+    </div>
+    <div class="form-group">
+      <label>角色</label>
+      <select id="f-role">
+        <option value="operator">操作員</option>
+        <option value="admin">管理員</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('user-modal')">取消</button>
+      <button class="btn-primary" onclick="saveUser()">💾 建立用戶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let token = localStorage.getItem('ctma_token');
+if (!token) window.location.href = '/';
+
+function authHeader() {
+  return {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'};
+}
+function doLogout() {
+  localStorage.removeItem('ctma_token');
+  localStorage.removeItem('ctma_user');
+  window.location.href = '/';
+}
+
+let allNodes = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
+  // 驗證管理員
+  try {
+    const r = await fetch('/api/auth/me', {headers: authHeader()});
+    if (!r.ok) { doLogout(); return; }
+    const u = await r.json();
+    if (u.role !== 'admin') { window.location.href = '/app'; return; }
+  } catch(e) { doLogout(); return; }
+
+  loadDashboard();
+  loadNodes();
+  loadUsers();
+});
+
+// ── 儀表板 ────────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const r = await fetch('/api/admin/dashboard', {headers: authHeader()});
+    if (!r.ok) return;
+    const d = await r.json();
+
+    document.getElementById('s-total-nodes').textContent    = d.total_nodes ?? '--';
+    document.getElementById('s-active-nodes').textContent   = d.active_nodes ?? '--';
+    document.getElementById('s-total-pred').textContent     = d.total_predictions ?? '--';
+    document.getElementById('s-total-readings').textContent = d.total_readings ?? '--';
+    document.getElementById('s-avg-quality').textContent    = d.avg_quality ?? '--';
+    document.getElementById('s-avg-discount').textContent   = d.avg_discount ?? '--';
+
+    const recent = d.recent_predictions || [];
+    const listEl = document.getElementById('recent-list');
+    if (!recent.length) {
+      listEl.innerHTML = '<div class="empty-state"><div class="icon">📋</div><div>尚無評估記錄</div></div>';
+    } else {
+      listEl.innerHTML = recent.map(p => `
+        <div class="recent-item">
+          <div>
+            <span class="recent-node">${p.node_name || p.node_id}</span>
+            <span style="color:#64748b;font-size:.72rem;margin-left:8px">${p.product || '--'}</span>
+          </div>
+          <div style="display:flex;gap:16px;align-items:center">
+            <span class="recent-quality">Q: ${(p.quality_combined||0).toFixed(1)}</span>
+            <span style="color:#38bdf8">DSL: ${(p.dsl_combined||0).toFixed(2)}天</span>
+            <span class="recent-discount">${p.discount_pct>0?'-'+p.discount_pct+'%':'無折扣'}</span>
+            <span style="color:#facc15;font-weight:700">$${p.final_price||'--'}</span>
+            <span class="recent-time">${(p.recorded_at||'').slice(0,16)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) { console.warn(e); }
+}
+
+// ── 節點管理 ──────────────────────────────────────────────────────────────────
+async function loadNodes() {
+  try {
+    const r = await fetch('/api/nodes', {headers: authHeader()});
+    if (!r.ok) return;
+    allNodes = await r.json();
+
+    // 更新節點篩選器
+    const filterEl = document.getElementById('records-node-filter');
+    filterEl.innerHTML = '<option value="">全部節點</option>' +
+      allNodes.map(n => `<option value="${n.node_id}">${n.name}</option>`).join('');
+
+    const tbody = document.getElementById('nodes-tbody');
+    if (!allNodes.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">暫無節點</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allNodes.map(n => `
+      <tr>
+        <td style="color:#64748b;font-family:monospace">${n.node_id}</td>
+        <td style="font-weight:600">${n.name}</td>
+        <td style="color:#94a3b8">${n.location_name || '--'}</td>
+        <td>${{banana:'🍌 香蕉',apple:'🍎 蘋果',tomato:'🍅 番茄',lettuce:'🥬 萵苣'}[n.product]||n.product}</td>
+        <td style="color:#facc15">${n.initial_dsl} 天</td>
+        <td>$${n.base_price}</td>
+        <td><span class="badge badge-${n.status==='active'?'active':n.status==='maintenance'?'maintenance':'inactive'}">${n.status==='active'?'線上':n.status==='maintenance'?'維護中':'離線'}</span></td>
+        <td style="display:flex;gap:6px">
+          <button class="btn-edit" onclick="editNode(${JSON.stringify(n).replace(/"/g,'&quot;')})">編輯</button>
+          <button class="btn-danger" onclick="deleteNode('${n.node_id}')">刪除</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch(e) { console.warn(e); }
+}
+
+function openNodeModal(node) {
+  document.getElementById('node-modal-title').textContent = node ? '編輯節點' : '新增節點';
+  document.getElementById('edit-node-id').value    = node?.node_id || '';
+  document.getElementById('f-node-id').value       = node?.node_id || '';
+  document.getElementById('f-node-id').disabled    = !!node;
+  document.getElementById('f-node-name').value     = node?.name || '';
+  document.getElementById('f-location').value      = node?.location_name || '';
+  document.getElementById('f-lat').value           = node?.lat || 22.3193;
+  document.getElementById('f-lng').value           = node?.lng || 114.1694;
+  document.getElementById('f-product').value       = node?.product || 'banana';
+  document.getElementById('f-initial-dsl').value   = node?.initial_dsl || 10;
+  document.getElementById('f-base-price').value    = node?.base_price || 100;
+  document.getElementById('f-status').value        = node?.status || 'active';
+  document.getElementById('f-camera-url').value    = node?.camera_url || '';
+  document.getElementById('f-mqtt-topic').value    = node?.mqtt_topic || '';
+  document.getElementById('node-modal').classList.add('open');
+}
+
+function editNode(node) { openNodeModal(node); }
+
+async function saveNode() {
+  const editId = document.getElementById('edit-node-id').value;
+  const body = {
+    node_id:       document.getElementById('f-node-id').value.trim(),
+    name:          document.getElementById('f-node-name').value.trim(),
+    location_name: document.getElementById('f-location').value.trim(),
+    lat:           parseFloat(document.getElementById('f-lat').value),
+    lng:           parseFloat(document.getElementById('f-lng').value),
+    floor:         '',
+    product:       document.getElementById('f-product').value,
+    initial_dsl:   parseFloat(document.getElementById('f-initial-dsl').value),
+    base_price:    parseFloat(document.getElementById('f-base-price').value),
+    status:        document.getElementById('f-status').value,
+    camera_url:    document.getElementById('f-camera-url').value.trim(),
+    mqtt_topic:    document.getElementById('f-mqtt-topic').value.trim(),
+  };
+  if (!body.node_id || !body.name) { alert('請填寫節點 ID 與名稱'); return; }
+  try {
+    const url    = editId ? `/api/nodes/${editId}` : '/api/nodes';
+    const method = editId ? 'PUT' : 'POST';
+    const r = await fetch(url, {method, headers: authHeader(), body: JSON.stringify(body)});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
+    closeModal('node-modal');
+    loadNodes();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+async function deleteNode(nodeId) {
+  if (!confirm(`確定刪除節點 ${nodeId}？此操作不可復原。`)) return;
+  try {
+    const r = await fetch(`/api/nodes/${nodeId}`, {method:'DELETE', headers: authHeader()});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
+    loadNodes();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ── 用戶管理 ──────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  try {
+    const r = await fetch('/api/auth/users', {headers: authHeader()});
+    if (!r.ok) return;
+    const users = await r.json();
+    const tbody = document.getElementById('users-tbody');
+    if (!users.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暫無用戶</td></tr>';
+      return;
+    }
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td style="color:#64748b">${u.id}</td>
+        <td style="font-weight:600">${u.username}</td>
+        <td style="color:#94a3b8">${u.display_name || '--'}</td>
+        <td><span class="badge badge-${u.role}">${u.role === 'admin' ? '管理員' : '操作員'}</span></td>
+        <td style="color:#64748b;font-size:.75rem">${(u.created_at||'').slice(0,16)}</td>
+        <td style="color:#64748b;font-size:.75rem">${(u.last_login||'--').slice(0,16)}</td>
+        <td>${u.username !== 'admin' ? `<button class="btn-danger" onclick="deleteUser(${u.id},'${u.username}')">刪除</button>` : '<span style="color:#475569;font-size:.72rem">系統帳號</span>'}</td>
+      </tr>
+    `).join('');
+  } catch(e) { console.warn(e); }
+}
+
+function openUserModal() {
+  document.getElementById('f-username').value     = '';
+  document.getElementById('f-password').value     = '';
+  document.getElementById('f-display-name').value = '';
+  document.getElementById('f-role').value         = 'operator';
+  document.getElementById('user-modal').classList.add('open');
+}
+
+async function saveUser() {
+  const body = {
+    username:     document.getElementById('f-username').value.trim(),
+    password:     document.getElementById('f-password').value,
+    display_name: document.getElementById('f-display-name').value.trim(),
+    role:         document.getElementById('f-role').value,
+  };
+  if (!body.username || !body.password) { alert('請填寫帳號與密碼'); return; }
+  try {
+    const r = await fetch('/api/auth/users', {method:'POST', headers: authHeader(), body: JSON.stringify(body)});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
+    closeModal('user-modal');
+    loadUsers();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`確定刪除用戶 ${username}？`)) return;
+  try {
+    const r = await fetch(`/api/auth/users/${id}`, {method:'DELETE', headers: authHeader()});
+    if (!r.ok) { const e = await r.json(); throw new Error(e.detail); }
+    loadUsers();
+  } catch(e) { alert('❌ ' + e.message); }
+}
+
+// ── 數據記錄 ──────────────────────────────────────────────────────────────────
+async function loadRecords() {
+  const nodeId = document.getElementById('records-node-filter').value;
+  const nodes  = nodeId ? [nodeId] : allNodes.map(n => n.node_id);
+  const tbody  = document.getElementById('records-tbody');
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#475569;padding:20px">載入中…</td></tr>';
+
+  try {
+    let allPreds = [];
+    for (const nid of nodes.slice(0, 10)) {
+      const r = await fetch(`/api/nodes/${nid}/predictions?limit=20`, {headers: authHeader()});
+      if (r.ok) {
+        const preds = await r.json();
+        const node  = allNodes.find(n => n.node_id === nid);
+        preds.forEach(p => { p._node_name = node?.name || nid; });
+        allPreds = allPreds.concat(preds);
+      }
+    }
+    allPreds.sort((a,b) => b.recorded_at.localeCompare(a.recorded_at));
+    allPreds = allPreds.slice(0, 100);
+
+    if (!allPreds.length) {
+      tbody.innerHTML = '<tr><td colspan="9" class="empty-state">暫無記錄</td></tr>';
+      return;
+    }
+    tbody.innerHTML = allPreds.map(p => `
+      <tr>
+        <td style="font-size:.72rem;color:#64748b">${(p.recorded_at||'').slice(0,16)}</td>
+        <td style="color:#94a3b8">${p._node_name}</td>
+        <td>${{banana:'🍌',apple:'🍎',tomato:'🍅',lettuce:'🥬'}[p.product]||'📦'} ${p.product||'--'}</td>
+        <td style="color:#f97316">${p.temperature!=null?p.temperature.toFixed(1)+'°C':'--'}</td>
+        <td style="color:#3b82f6">${p.humidity!=null?p.humidity.toFixed(1)+'%':'--'}</td>
+        <td style="color:#facc15;font-weight:700">${(p.quality_combined||0).toFixed(1)}</td>
+        <td style="color:#38bdf8">${(p.dsl_combined||0).toFixed(2)}</td>
+        <td style="color:${p.discount_pct>0?'#ef4444':'#22c55e'};font-weight:700">${p.discount_pct>0?'-'+p.discount_pct+'%':'無'}</td>
+        <td style="font-weight:700">$${p.final_price||'--'}</td>
+      </tr>
+    `).join('');
+  } catch(e) { console.warn(e); tbody.innerHTML = '<tr><td colspan="9" class="empty-state">載入失敗</td></tr>'; }
+}
+
+// ── 工具 ──────────────────────────────────────────────────────────────────────
+function switchAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach((b,i) => {
+    const tabs = ['dashboard','nodes','users','records'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.admin-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('pane-' + tab).classList.add('active');
+  if (tab === 'records') loadRecords();
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+// 點擊遮罩關閉
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+</script>
+</body>
+</html>

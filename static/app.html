@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AIoT Smart Shelf — 應用層</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--blue:#3b82f6;--green:#22c55e;--yellow:#eab308;--orange:#f97316;--red:#ef4444;--purple:#8b5cf6}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e8f0;min-height:100vh;display:flex;flex-direction:column}
+/* ── 頂部導航 ── */
+.navbar{background:rgba(15,23,42,.97);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px)}
+.nav-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1rem;color:#f1f5f9}
+.nav-brand span{font-size:1.4rem}
+.nav-badge{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.5px}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-user{font-size:.82rem;color:#94a3b8}
+.nav-user strong{color:#f1f5f9}
+.btn-nav{background:transparent;border:1px solid var(--border);color:#94a3b8;padding:6px 14px;border-radius:8px;font-size:.78rem;cursor:pointer;transition:all .2s}
+.btn-nav:hover{border-color:var(--blue);color:var(--blue)}
+.btn-nav.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-admin{background:rgba(139,92,246,.15);border-color:var(--purple);color:#c4b5fd}
+.btn-admin:hover{background:var(--purple);color:#fff}
+/* ── 主體佈局 ── */
+.main{display:flex;flex:1;overflow:hidden}
+/* ── 左側面板 ── */
+.sidebar{width:340px;min-width:300px;background:rgba(15,23,42,.98);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar-tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab-btn{flex:1;padding:12px 8px;background:transparent;border:none;color:#64748b;font-size:.78rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}
+.tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+.tab-content{flex:1;overflow-y:auto;padding:16px}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+/* ── 節點列表 ── */
+.node-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+.node-card:hover,.node-card.selected{border-color:var(--blue);background:rgba(59,130,246,.08)}
+.node-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.node-name{font-weight:700;font-size:.9rem;color:#f1f5f9}
+.node-status{font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:999px}
+.status-active{background:#166534;color:#bbf7d0}
+.status-inactive{background:#1e293b;color:#64748b}
+.status-maintenance{background:#713f12;color:#fde68a}
+.node-location{font-size:.75rem;color:#64748b;margin-bottom:8px}
+.node-sensor-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sensor-mini{background:#0f172a;border-radius:8px;padding:8px;text-align:center}
+.sensor-mini-label{font-size:.65rem;color:#475569;text-transform:uppercase;letter-spacing:.3px}
+.sensor-mini-val{font-size:1.1rem;font-weight:700;color:#f1f5f9;margin-top:2px}
+.sensor-mini-unit{font-size:.7rem;color:#64748b}
+.node-product-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:.75rem;color:#64748b}
+/* ── 品質評估面板 ── */
+.assess-section{margin-bottom:18px}
+.assess-title{font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.assess-title::before{content:'';display:inline-block;width:3px;height:12px;background:var(--blue);border-radius:2px}
+.ctrl-group{margin-bottom:12px}
+.ctrl-group label{display:block;font-size:.78rem;color:#94a3b8;margin-bottom:5px;font-weight:500}
+.ctrl-group input[type="number"],.ctrl-group select{width:100%;background:#0f172a;border:1px solid var(--border);border-radius:8px;color:#f1f5f9;font-size:.88rem;padding:8px 12px;outline:none;transition:border-color .2s}
+.ctrl-group input:focus,.ctrl-group select:focus{border-color:var(--blue)}
+.ctrl-group input[type="range"]{width:100%;accent-color:var(--blue);height:5px;cursor:pointer}
+.slider-row{display:flex;justify-content:space-between;font-size:.68rem;color:#475569;margin-top:3px}
+.slider-val{font-size:1.1rem;font-weight:700;color:#facc15;text-align:center;margin-bottom:3px}
+.manual-toggle{font-size:.72rem;color:var(--blue);cursor:pointer;text-decoration:underline;margin-bottom:8px;display:inline-block}
+.manual-inputs{display:none}
+.manual-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn-predict{width:100%;padding:11px;border-radius:9px;border:none;font-size:.88rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;transition:opacity .2s;display:flex;align-items:center;justify-content:center;gap:7px}
+.btn-predict:hover{opacity:.9}
+.btn-predict:disabled{opacity:.4;cursor:not-allowed}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;border-radius:7px;padding:8px 12px;font-size:.78rem;margin-top:8px;display:none}
+/* ── 評估結果 ── */
+.result-panel{display:none;margin-top:14px}
+.score-trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px}
+.score-box{background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.score-box.combined{border-color:var(--blue);background:rgba(59,130,246,.08)}
+.score-box-label{font-size:.62rem;color:#64748b;text-transform:uppercase;letter-spacing:.3px;margin-bottom:5px}
+.score-box-val{font-size:1.6rem;font-weight:900;line-height:1}
+.score-box-sub{font-size:.65rem;color:#64748b;margin-top:3px}
+.score-badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:.7rem;font-weight:700;margin-top:5px}
+.price-result{background:linear-gradient(135deg,rgba(30,58,95,.8),rgba(30,41,59,.8));border:1px solid var(--blue);border-radius:12px;padding:16px;text-align:center;margin-bottom:10px}
+.price-original{font-size:.82rem;color:#64748b;text-decoration:line-through}
+.price-final{font-size:2.2rem;font-weight:900;color:#facc15;line-height:1.1}
+.price-discount{display:inline-block;background:#dc2626;color:#fff;font-size:.78rem;font-weight:700;padding:3px 10px;border-radius:999px;margin-left:8px;vertical-align:middle}
+.price-dsl{font-size:.8rem;color:#38bdf8;margin-top:5px}
+.dsl-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.dsl-box{background:#0f172a;border-radius:8px;padding:10px;text-align:center}
+.dsl-label{font-size:.65rem;color:#64748b;text-transform:uppercase;letter-spacing:.3px}
+.dsl-val{font-size:1.3rem;font-weight:800;margin-top:3px}
+.dsl-unit{font-size:.7rem;color:#94a3b8}
+.qbar-wrap{margin-bottom:10px}
+.qbar-label{display:flex;justify-content:space-between;font-size:.72rem;color:#64748b;margin-bottom:4px}
+.qbar-bg{background:#1e293b;border-radius:999px;height:12px;overflow:hidden;border:1px solid var(--border);position:relative}
+.qbar-fill{height:100%;border-radius:999px;transition:width 1.2s ease,background 1s ease}
+.qbar-threshold{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;opacity:.7;left:70%}
+/* ── 地圖 ── */
+.map-container{flex:1;position:relative}
+#map{width:100%;height:100%;min-height:400px}
+.map-overlay{position:absolute;top:12px;right:12px;z-index:500;display:flex;flex-direction:column;gap:8px}
+.map-info-card{background:rgba(15,23,42,.92);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:.78rem;color:#94a3b8;min-width:180px;backdrop-filter:blur(8px)}
+.map-info-card strong{color:#f1f5f9;display:block;margin-bottom:5px;font-size:.82rem}
+.map-stat{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(51,65,85,.5)}
+.map-stat:last-child{border-bottom:none}
+.map-stat-val{color:#facc15;font-weight:700}
+/* ── 節點詳情彈窗 ── */
+.node-detail-panel{position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,.97);border-top:1px solid var(--border);padding:16px 20px;z-index:600;display:none;max-height:40vh;overflow-y:auto;backdrop-filter:blur(10px)}
+.node-detail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.node-detail-title{font-size:1rem;font-weight:700;color:#f1f5f9}
+.btn-close{background:transparent;border:1px solid var(--border);color:#64748b;width:28px;height:28px;border-radius:6px;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center}
+.node-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.detail-stat{background:var(--card);border-radius:8px;padding:10px;text-align:center}
+.detail-stat-label{font-size:.65rem;color:#64748b;text-transform:uppercase;letter-spacing:.3px}
+.detail-stat-val{font-size:1.2rem;font-weight:700;margin-top:3px}
+/* ── 歷史圖表 ── */
+.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;margin-top:10px}
+.chart-title{font-size:.75rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+/* ── Leaflet 自訂 ── */
+.leaflet-container{background:#0f172a}
+.custom-marker{background:transparent;border:none}
+.marker-pin{width:36px;height:36px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 4px 12px rgba(0,0,0,.5);cursor:pointer;transition:transform .2s}
+.marker-pin:hover{transform:scale(1.15)}
+.marker-active{background:linear-gradient(135deg,#22c55e,#16a34a)}
+.marker-warning{background:linear-gradient(135deg,#eab308,#ca8a04)}
+.marker-danger{background:linear-gradient(135deg,#ef4444,#dc2626)}
+.marker-inactive{background:linear-gradient(135deg,#475569,#334155)}
+.leaflet-popup-content-wrapper{background:rgba(15,23,42,.97);border:1px solid #334155;border-radius:12px;color:#e2e8f0;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.leaflet-popup-tip{background:#1e293b}
+.popup-title{font-weight:700;font-size:.9rem;color:#f1f5f9;margin-bottom:6px}
+.popup-row{display:flex;justify-content:space-between;font-size:.78rem;padding:3px 0;border-bottom:1px solid #1e293b}
+.popup-row:last-child{border-bottom:none}
+.popup-val{color:#facc15;font-weight:600}
+/* ── 相機 ── */
+.camera-wrap{background:#020617;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.camera-wrap img{width:100%;display:block;max-height:200px;object-fit:contain}
+.camera-footer{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;font-size:.7rem;color:#475569}
+/* ── 折扣規則表 ── */
+.disc-table{width:100%;border-collapse:collapse;font-size:.75rem;margin-top:8px}
+.disc-table th{background:#0f172a;color:#64748b;padding:6px 8px;text-align:left;font-size:.65rem;text-transform:uppercase;letter-spacing:.3px}
+.disc-table td{padding:6px 8px;border-top:1px solid var(--border);color:#e2e8f0}
+.disc-table tr.active-row td{background:rgba(59,130,246,.12);border-left:2px solid var(--blue)}
+.disc-badge{display:inline-block;font-weight:700;font-size:.7rem;padding:1px 7px;border-radius:999px}
+.disc-no{background:#166534;color:#bbf7d0}
+.disc-yes{background:#dc2626;color:#fff}
+</style>
+</head>
+<body>
+
+<!-- ── 頂部導航 ── -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <span>🍌</span>
+    AIoT Smart Shelf
+    <span class="nav-badge">v4.0</span>
+  </div>
+  <div class="nav-right">
+    <div class="nav-user">歡迎，<strong id="nav-username">--</strong></div>
+    <button class="btn-nav" onclick="window.location.href='/admin'" id="btn-admin" style="display:none">
+      ⚙️ 後台管理
+    </button>
+    <button class="btn-nav" onclick="doLogout()">登出</button>
+  </div>
+</nav>
+
+<!-- ── 主體 ── -->
+<div class="main">
+
+  <!-- ── 左側面板 ── -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="tab-btn active" onclick="switchTab('nodes')">節點列表</button>
+      <button class="tab-btn" onclick="switchTab('assess')">品質評估</button>
+      <button class="tab-btn" onclick="switchTab('history')">歷史記錄</button>
+    </div>
+
+    <!-- 節點列表 -->
+    <div class="tab-content">
+      <div class="tab-pane active" id="tab-nodes">
+        <div id="node-list">
+          <div style="text-align:center;padding:30px;color:#475569;font-size:.85rem">載入中…</div>
+        </div>
+      </div>
+
+      <!-- 品質評估 -->
+      <div class="tab-pane" id="tab-assess">
+        <div class="assess-section">
+          <div class="assess-title">選擇節點</div>
+          <div class="ctrl-group">
+            <select id="assess-node-select" onchange="onAssessNodeChange()">
+              <option value="">— 請選擇節點 —</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="assess-section">
+          <div class="assess-title">相機畫面</div>
+          <div class="camera-wrap">
+            <img id="assess-camera" src="" alt="相機畫面" style="min-height:120px"/>
+            <div class="camera-footer">
+              <span id="camera-ts">--</span>
+              <button class="btn-nav" onclick="refreshCamera()" style="padding:3px 8px;font-size:.68rem">🔄</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="assess-section">
+          <div class="assess-title">評估參數</div>
+          <div class="ctrl-group">
+            <label>產品類型</label>
+            <select id="assess-product" onchange="onProductChange()">
+              <option value="banana">🍌 香蕉</option>
+              <option value="apple">🍎 蘋果</option>
+              <option value="tomato">🍅 番茄</option>
+              <option value="lettuce">🥬 萵苣</option>
+            </select>
+          </div>
+          <div class="ctrl-group">
+            <label>初始 DSL（天）</label>
+            <input type="number" id="assess-initial-dsl" value="10" min="1" max="60"/>
+          </div>
+          <div class="ctrl-group">
+            <label>已儲存天數</label>
+            <div class="slider-val"><span id="storage-display">1</span> 天</div>
+            <input type="range" id="storage-slider" min="0" max="60" value="1"
+                   oninput="document.getElementById('storage-display').textContent=this.value"/>
+            <div class="slider-row"><span>0</span><span>60 天</span></div>
+          </div>
+          <div class="ctrl-group">
+            <label>原始售價（元）</label>
+            <input type="number" id="assess-price" value="100" min="1"/>
+          </div>
+          <span class="manual-toggle" onclick="toggleManual()">📡 手動輸入感測器數值</span>
+          <div class="manual-inputs" id="manual-inputs">
+            <div class="manual-row">
+              <div class="ctrl-group">
+                <label>溫度 (°C)</label>
+                <input type="number" id="manual-temp" value="25" min="-10" max="50" step="0.1"/>
+              </div>
+              <div class="ctrl-group">
+                <label>濕度 (%)</label>
+                <input type="number" id="manual-hum" value="75" min="0" max="100"/>
+              </div>
+            </div>
+          </div>
+          <button class="btn-predict" id="predict-btn" onclick="runPredict()">
+            <span>🔍 執行複合品質評估</span>
+            <div class="spinner" id="spinner"></div>
+          </button>
+          <div class="error-msg" id="error-msg"></div>
+        </div>
+
+        <!-- 評估結果 -->
+        <div class="result-panel" id="result-panel">
+          <div class="assess-title">評估結果</div>
+          <div class="score-trio">
+            <div class="score-box">
+              <div class="score-box-label">AI 品質</div>
+              <div class="score-box-val" id="r-ai" style="color:#8b5cf6">--</div>
+              <div class="score-box-sub">Q_AI</div>
+            </div>
+            <div class="score-box">
+              <div class="score-box-label">公式 Q(t)</div>
+              <div class="score-box-val" id="r-formula" style="color:#3b82f6">--</div>
+              <div class="score-box-sub">論文公式</div>
+            </div>
+            <div class="score-box combined">
+              <div class="score-box-label">複合評分</div>
+              <div class="score-box-val" id="r-combined" style="color:#facc15">--</div>
+              <div class="score-box-sub">Q_combined</div>
+            </div>
+          </div>
+          <div class="qbar-wrap">
+            <div class="qbar-label"><span>品質分數</span><span id="qbar-pct">--</span></div>
+            <div class="qbar-bg">
+              <div class="qbar-fill" id="qbar" style="width:0%"></div>
+              <div class="qbar-threshold"></div>
+            </div>
+          </div>
+          <div class="dsl-row">
+            <div class="dsl-box">
+              <div class="dsl-label">論文 DSL</div>
+              <div class="dsl-val" id="r-dsl-formula" style="color:#3b82f6">--</div>
+              <div class="dsl-unit">天</div>
+            </div>
+            <div class="dsl-box" style="border:1px solid var(--blue);background:rgba(59,130,246,.08)">
+              <div class="dsl-label">複合 DSL</div>
+              <div class="dsl-val" id="r-dsl-combined" style="color:#facc15">--</div>
+              <div class="dsl-unit">天（折扣依據）</div>
+            </div>
+          </div>
+          <div class="price-result">
+            <div class="price-original">原價：<span id="r-price-orig">--</span> 元</div>
+            <div>
+              <span class="price-final" id="r-price-final">--</span>
+              <span class="price-discount" id="r-discount-badge" style="display:none">--</span>
+            </div>
+            <div class="price-dsl" id="r-price-reason">--</div>
+          </div>
+          <table class="disc-table" id="disc-table">
+            <thead><tr><th>複合 DSL</th><th>折扣</th><th>說明</th></tr></thead>
+            <tbody>
+              <tr><td>DSL &gt; 7 天</td><td><span class="disc-badge disc-no">無折扣</span></td><td>新鮮</td></tr>
+              <tr><td>3 &lt; DSL ≤ 7</td><td><span class="disc-badge disc-yes">-10%</span></td><td>輕微老化</td></tr>
+              <tr><td>1 &lt; DSL ≤ 3</td><td><span class="disc-badge disc-yes">-25%</span></td><td>近效期 ★</td></tr>
+              <tr><td>0.5 &lt; DSL ≤ 1</td><td><span class="disc-badge disc-yes">-35%</span></td><td>急需銷售</td></tr>
+              <tr><td>DSL ≤ 0.5</td><td><span class="disc-badge disc-yes">-50%</span></td><td>最終清倉</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 歷史記錄 -->
+      <div class="tab-pane" id="tab-history">
+        <div class="ctrl-group">
+          <label>選擇節點</label>
+          <select id="history-node-select" onchange="loadHistory()">
+            <option value="">— 請選擇節點 —</option>
+          </select>
+        </div>
+        <div class="chart-wrap" id="chart-wrap" style="display:none">
+          <div class="chart-title">品質評分趨勢（最近 50 筆）</div>
+          <canvas id="quality-chart" height="180"></canvas>
+        </div>
+        <div class="chart-wrap" id="chart-wrap2" style="display:none">
+          <div class="chart-title">溫溼度趨勢（最近 50 筆）</div>
+          <canvas id="sensor-chart" height="180"></canvas>
+        </div>
+        <div id="history-list" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 地圖 ── -->
+  <div class="map-container">
+    <div id="map"></div>
+
+    <!-- 地圖右上角統計 -->
+    <div class="map-overlay">
+      <div class="map-info-card">
+        <strong>🗺️ 節點總覽</strong>
+        <div class="map-stat"><span>總節點數</span><span class="map-stat-val" id="stat-total">--</span></div>
+        <div class="map-stat"><span>線上節點</span><span class="map-stat-val" id="stat-active">--</span></div>
+        <div class="map-stat"><span>平均品質</span><span class="map-stat-val" id="stat-quality">--</span></div>
+        <div class="map-stat"><span>平均折扣</span><span class="map-stat-val" id="stat-discount">--</span></div>
+      </div>
+    </div>
+
+    <!-- 節點詳情底部彈窗 -->
+    <div class="node-detail-panel" id="node-detail-panel">
+      <div class="node-detail-header">
+        <div class="node-detail-title" id="detail-title">節點詳情</div>
+        <button class="btn-close" onclick="closeDetail()">✕</button>
+      </div>
+      <div class="node-detail-grid" id="detail-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 全域狀態 ──────────────────────────────────────────────────────────────────
+let token = localStorage.getItem('ctma_token');
+let currentUser = JSON.parse(localStorage.getItem('ctma_user') || '{}');
+let nodes = [];
+let selectedNodeId = null;
+let manualMode = false;
+let map, markers = {};
+let qualityChart = null, sensorChart = null;
+
+const PRODUCT_DEFAULT_DSL = {banana:10, apple:14, tomato:10, lettuce:7};
+
+// ── 認證檢查 ──────────────────────────────────────────────────────────────────
+if (!token) { window.location.href = '/'; }
+
+function authHeader() {
+  return {'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json'};
+}
+
+function doLogout() {
+  localStorage.removeItem('ctma_token');
+  localStorage.removeItem('ctma_user');
+  window.location.href = '/';
+}
+
+// ── 初始化 ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  // 驗證 Token
+  try {
+    const r = await fetch('/api/auth/me', {headers: authHeader()});
+    if (!r.ok) { doLogout(); return; }
+    const u = await r.json();
+    currentUser = u;
+    document.getElementById('nav-username').textContent = u.display_name || u.username;
+    if (u.role === 'admin') {
+      document.getElementById('btn-admin').style.display = 'block';
+    }
+  } catch(e) { doLogout(); return; }
+
+  initMap();
+  await loadNodes();
+  setInterval(loadNodes, 15000);  // 每 15 秒自動更新
+});
+
+// ── 地圖初始化 ────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map', {
+    center: [22.3193, 114.1694],
+    zoom: 15,
+    zoomControl: true,
+  });
+
+  // 深色地圖底圖
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 20,
+  }).addTo(map);
+}
+
+// ── 載入節點 ──────────────────────────────────────────────────────────────────
+async function loadNodes() {
+  try {
+    const r = await fetch('/api/nodes', {headers: authHeader()});
+    if (!r.ok) return;
+    nodes = await r.json();
+    renderNodeList();
+    renderMapMarkers();
+    updateNodeSelects();
+    updateMapStats();
+  } catch(e) {
+    console.warn('Load nodes error:', e);
+  }
+}
+
+function renderNodeList() {
+  const container = document.getElementById('node-list');
+  if (!nodes.length) {
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#475569;font-size:.85rem">暫無節點</div>';
+    return;
+  }
+  container.innerHTML = nodes.map(n => {
+    const sensor = n.latest_sensor || {};
+    const temp = sensor.temperature != null ? sensor.temperature.toFixed(1) : '--';
+    const hum  = sensor.humidity    != null ? sensor.humidity.toFixed(1)    : '--';
+    const statusClass = n.status === 'active' ? 'status-active' : n.status === 'maintenance' ? 'status-maintenance' : 'status-inactive';
+    const statusText  = n.status === 'active' ? '線上' : n.status === 'maintenance' ? '維護中' : '離線';
+    const productEmoji = {banana:'🍌',apple:'🍎',tomato:'🍅',lettuce:'🥬'}[n.product] || '📦';
+    return `<div class="node-card${selectedNodeId===n.node_id?' selected':''}" onclick="selectNode('${n.node_id}')">
+      <div class="node-card-header">
+        <div class="node-name">${n.name}</div>
+        <span class="node-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="node-location">📍 ${n.location_name || '未設定位置'}</div>
+      <div class="node-sensor-row">
+        <div class="sensor-mini">
+          <div class="sensor-mini-label">溫度</div>
+          <div class="sensor-mini-val">${temp}</div>
+          <div class="sensor-mini-unit">°C</div>
+        </div>
+        <div class="sensor-mini">
+          <div class="sensor-mini-label">濕度</div>
+          <div class="sensor-mini-val">${hum}</div>
+          <div class="sensor-mini-unit">%</div>
+        </div>
+      </div>
+      <div class="node-product-row">
+        <span>${productEmoji} ${n.product}</span>
+        <span>初始 DSL: ${n.initial_dsl} 天</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMapMarkers() {
+  // 清除舊標記
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+
+  nodes.forEach(n => {
+    const sensor = n.latest_sensor || {};
+    const hasData = sensor.temperature != null;
+    const markerClass = n.status !== 'active' ? 'marker-inactive' :
+                        !hasData ? 'marker-inactive' : 'marker-active';
+    const emoji = {banana:'🍌',apple:'🍎',tomato:'🍅',lettuce:'🥬'}[n.product] || '📦';
+
+    const icon = L.divIcon({
+      className: 'custom-marker',
+      html: `<div class="marker-pin ${markerClass}">${emoji}</div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+
+    const temp = hasData ? sensor.temperature.toFixed(1) + '°C' : '--';
+    const hum  = hasData ? sensor.humidity.toFixed(1) + '%' : '--';
+
+    const marker = L.marker([n.lat, n.lng], {icon})
+      .addTo(map)
+      .bindPopup(`
+        <div class="popup-title">${emoji} ${n.name}</div>
+        <div class="popup-row"><span>位置</span><span class="popup-val">${n.location_name || '--'}</span></div>
+        <div class="popup-row"><span>溫度</span><span class="popup-val">${temp}</span></div>
+        <div class="popup-row"><span>濕度</span><span class="popup-val">${hum}</span></div>
+        <div class="popup-row"><span>產品</span><span class="popup-val">${n.product}</span></div>
+        <div class="popup-row"><span>狀態</span><span class="popup-val">${n.status}</span></div>
+        <div style="margin-top:8px;text-align:center">
+          <button onclick="selectNode('${n.node_id}');switchTab('assess')" 
+                  style="background:#3b82f6;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:.78rem">
+            🔍 執行評估
+          </button>
+        </div>
+      `, {maxWidth: 240})
+      .on('click', () => showNodeDetail(n));
+
+    markers[n.node_id] = marker;
+  });
+
+  // 自動縮放到所有節點
+  if (nodes.length > 0) {
+    const latlngs = nodes.map(n => [n.lat, n.lng]);
+    try { map.fitBounds(latlngs, {padding: [40, 40], maxZoom: 17}); } catch(e) {}
+  }
+}
+
+function updateNodeSelects() {
+  const opts = nodes.map(n => `<option value="${n.node_id}">${n.name}</option>`).join('');
+  document.getElementById('assess-node-select').innerHTML = '<option value="">— 請選擇節點 —</option>' + opts;
+  document.getElementById('history-node-select').innerHTML = '<option value="">— 請選擇節點 —</option>' + opts;
+  if (selectedNodeId) {
+    document.getElementById('assess-node-select').value = selectedNodeId;
+  }
+}
+
+function updateMapStats() {
+  document.getElementById('stat-total').textContent   = nodes.length;
+  document.getElementById('stat-active').textContent  = nodes.filter(n => n.status === 'active').length;
+  // 從後台取統計
+  fetch('/api/admin/dashboard', {headers: authHeader()})
+    .then(r => r.ok ? r.json() : null)
+    .then(d => {
+      if (d) {
+        document.getElementById('stat-quality').textContent  = d.avg_quality != null ? d.avg_quality.toFixed(1) : '--';
+        document.getElementById('stat-discount').textContent = d.avg_discount != null ? d.avg_discount.toFixed(1) + '%' : '--';
+      }
+    }).catch(() => {});
+}
+
+// ── 節點選擇 ──────────────────────────────────────────────────────────────────
+function selectNode(nodeId) {
+  selectedNodeId = nodeId;
+  document.getElementById('assess-node-select').value = nodeId;
+  renderNodeList();
+
+  // 地圖飛到節點
+  const node = nodes.find(n => n.node_id === nodeId);
+  if (node) {
+    map.flyTo([node.lat, node.lng], 17, {duration: 1});
+    if (markers[nodeId]) markers[nodeId].openPopup();
+    // 設定產品與初始 DSL
+    document.getElementById('assess-product').value = node.product || 'banana';
+    document.getElementById('assess-initial-dsl').value = node.initial_dsl || 10;
+    document.getElementById('assess-price').value = node.base_price || 100;
+    refreshCamera();
+  }
+}
+
+function onAssessNodeChange() {
+  const nodeId = document.getElementById('assess-node-select').value;
+  if (nodeId) selectNode(nodeId);
+}
+
+function onProductChange() {
+  const product = document.getElementById('assess-product').value;
+  document.getElementById('assess-initial-dsl').value = PRODUCT_DEFAULT_DSL[product] || 10;
+}
+
+function showNodeDetail(node) {
+  const sensor = node.latest_sensor || {};
+  document.getElementById('detail-title').textContent = node.name;
+  document.getElementById('detail-grid').innerHTML = [
+    {label:'位置', val: node.location_name || '--', color:'#94a3b8'},
+    {label:'溫度', val: sensor.temperature != null ? sensor.temperature.toFixed(1)+'°C' : '--', color:'#f97316'},
+    {label:'濕度', val: sensor.humidity    != null ? sensor.humidity.toFixed(1)+'%'    : '--', color:'#3b82f6'},
+    {label:'產品', val: node.product, color:'#22c55e'},
+    {label:'初始 DSL', val: node.initial_dsl + ' 天', color:'#facc15'},
+    {label:'狀態', val: node.status, color: node.status==='active' ? '#22c55e' : '#ef4444'},
+  ].map(s => `<div class="detail-stat">
+    <div class="detail-stat-label">${s.label}</div>
+    <div class="detail-stat-val" style="color:${s.color}">${s.val}</div>
+  </div>`).join('');
+  document.getElementById('node-detail-panel').style.display = 'block';
+}
+
+function closeDetail() {
+  document.getElementById('node-detail-panel').style.display = 'none';
+}
+
+// ── 相機 ──────────────────────────────────────────────────────────────────────
+function refreshCamera() {
+  const nodeId = selectedNodeId || 'NODE_ISM_001';
+  const img = document.getElementById('assess-camera');
+  img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
+  document.getElementById('camera-ts').textContent = new Date().toLocaleTimeString('zh-TW');
+}
+
+// ── 品質評估 ──────────────────────────────────────────────────────────────────
+function toggleManual() {
+  manualMode = !manualMode;
+  document.getElementById('manual-inputs').style.display = manualMode ? 'block' : 'none';
+}
+
+async function runPredict() {
+  const nodeId = document.getElementById('assess-node-select').value;
+  if (!nodeId) {
+    document.getElementById('error-msg').textContent = '請先選擇節點';
+    document.getElementById('error-msg').style.display = 'block';
+    return;
+  }
+
+  const btn     = document.getElementById('predict-btn');
+  const spinner = document.getElementById('spinner');
+  const errMsg  = document.getElementById('error-msg');
+  errMsg.style.display = 'none';
+  btn.disabled = true;
+  spinner.style.display = 'block';
+
+  const storageDays = parseFloat(document.getElementById('storage-slider').value);
+  const basePrice   = parseFloat(document.getElementById('assess-price').value) || 100;
+  const product     = document.getElementById('assess-product').value;
+  const initialDsl  = parseFloat(document.getElementById('assess-initial-dsl').value) || PRODUCT_DEFAULT_DSL[product];
+
+  const body = {
+    storage_time: storageDays, base_price: basePrice,
+    product, initial_dsl: initialDsl, node_id: nodeId,
+  };
+  if (manualMode) {
+    const mt = parseFloat(document.getElementById('manual-temp').value);
+    const mh = parseFloat(document.getElementById('manual-hum').value);
+    if (!isNaN(mt)) body.temperature = mt;
+    if (!isNaN(mh)) body.humidity = mh;
+  }
+
+  try {
+    let d = null;
+    // 嘗試 AI 預測
+    try {
+      const r = await fetch('/api/predict', {
+        method:'POST', headers: authHeader(), body: JSON.stringify(body)
+      });
+      if (r.ok) d = normalizePredict(await r.json());
+      else if (r.status !== 503) { const e = await r.json(); throw new Error(e.detail); }
+    } catch(e) {
+      if (!e.message?.includes('503') && !e.message?.includes('fetch')) throw e;
+    }
+    // 降級到純公式
+    if (!d) {
+      const body2 = {...body, storage_days: storageDays};
+      delete body2.storage_time;
+      const r2 = await fetch('/api/quality', {
+        method:'POST', headers: authHeader(), body: JSON.stringify(body2)
+      });
+      if (!r2.ok) { const e = await r2.json(); throw new Error(e.detail); }
+      d = normalizeQuality(await r2.json());
+    }
+    showResult(d);
+  } catch(e) {
+    errMsg.textContent = '❌ ' + e.message;
+    errMsg.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+  }
+}
+
+function normalizePredict(d) {
+  return {
+    has_ai: true, ai_spoilage: d.spoilage_level,
+    quality_ai: d.quality_ai, quality_formula: d.quality_formula,
+    quality_combined: d.quality_combined, freshness_label: d.freshness_label,
+    freshness_color: d.freshness_color, dsl_formula: d.dsl_formula,
+    dsl_combined: d.dsl_combined, discount_pct: d.discount_pct,
+    base_price: d.base_price, final_price: d.final_price,
+    discount_reason: d.discount_reason,
+  };
+}
+
+function normalizeQuality(d) {
+  return {
+    has_ai: false, ai_spoilage: null, quality_ai: null,
+    quality_formula: d.quality_formula, quality_combined: d.quality_score,
+    freshness_label: d.freshness_label, freshness_color: d.freshness_color,
+    dsl_formula: d.dsl_formula, dsl_combined: d.dsl_days,
+    discount_pct: d.discount_pct, base_price: d.base_price,
+    final_price: d.final_price, discount_reason: d.discount_reason,
+  };
+}
+
+function showResult(d) {
+  const hasAI = d.has_ai && d.quality_ai != null;
+  document.getElementById('r-ai').textContent      = hasAI ? d.quality_ai.toFixed(1) : 'N/A';
+  document.getElementById('r-formula').textContent = d.quality_formula.toFixed(1);
+  document.getElementById('r-combined').textContent = d.quality_combined.toFixed(1);
+  document.getElementById('r-combined').style.color = d.freshness_color;
+
+  const qs = d.quality_combined;
+  const bar = document.getElementById('qbar');
+  bar.style.width = Math.min(qs, 100) + '%';
+  bar.style.background = qs >= 85 ? '#22c55e' : qs >= 70 ? '#eab308' : qs >= 55 ? '#f97316' : '#ef4444';
+  document.getElementById('qbar-pct').textContent = qs.toFixed(1) + ' / 100';
+
+  document.getElementById('r-dsl-formula').textContent  = d.dsl_formula.toFixed(2);
+  document.getElementById('r-dsl-combined').textContent = d.dsl_combined.toFixed(2);
+
+  document.getElementById('r-price-orig').textContent  = d.base_price;
+  document.getElementById('r-price-final').textContent = d.final_price;
+  document.getElementById('r-price-reason').textContent = d.discount_reason;
+
+  const badge = document.getElementById('r-discount-badge');
+  if (d.discount_pct > 0) {
+    badge.textContent = '-' + d.discount_pct + '%';
+    badge.style.display = 'inline-block';
+  } else {
+    badge.style.display = 'none';
+  }
+
+  // 折扣表高亮
+  const rows = document.querySelectorAll('#disc-table tbody tr');
+  rows.forEach(r => r.classList.remove('active-row'));
+  const dsl = d.dsl_combined;
+  const idx = dsl > 7 ? 0 : dsl > 3 ? 1 : dsl > 1 ? 2 : dsl > 0.5 ? 3 : 4;
+  if (rows[idx]) rows[idx].classList.add('active-row');
+
+  document.getElementById('result-panel').style.display = 'block';
+}
+
+// ── 歷史記錄 ──────────────────────────────────────────────────────────────────
+async function loadHistory() {
+  const nodeId = document.getElementById('history-node-select').value;
+  if (!nodeId) return;
+
+  try {
+    const [predRes, sensorRes] = await Promise.all([
+      fetch(`/api/nodes/${nodeId}/predictions?limit=50`, {headers: authHeader()}),
+      fetch(`/api/nodes/${nodeId}/readings?limit=50`, {headers: authHeader()}),
+    ]);
+    const preds   = predRes.ok   ? await predRes.json()   : [];
+    const sensors = sensorRes.ok ? await sensorRes.json() : [];
+
+    // 品質趨勢圖
+    if (preds.length > 0) {
+      document.getElementById('chart-wrap').style.display = 'block';
+      const labels = preds.slice().reverse().map(p => p.recorded_at.slice(5,16));
+      const qData  = preds.slice().reverse().map(p => p.quality_combined);
+      const dslData = preds.slice().reverse().map(p => p.dsl_combined);
+      if (qualityChart) qualityChart.destroy();
+      qualityChart = new Chart(document.getElementById('quality-chart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {label:'Q_combined', data: qData, borderColor:'#facc15', backgroundColor:'rgba(250,204,21,.1)', tension:.3, pointRadius:2},
+            {label:'DSL(天)', data: dslData, borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.1)', tension:.3, pointRadius:2, yAxisID:'y2'},
+          ]
+        },
+        options: {
+          responsive:true, plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}},
+          scales:{
+            x:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(51,65,85,.5)'}},
+            y:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(51,65,85,.5)'},min:0,max:100},
+            y2:{position:'right',ticks:{color:'#38bdf8',font:{size:9}},grid:{display:false},min:0},
+          }
+        }
+      });
+    }
+
+    // 感測器趨勢圖
+    if (sensors.length > 0) {
+      document.getElementById('chart-wrap2').style.display = 'block';
+      const labels2 = sensors.slice().reverse().map(s => s.recorded_at.slice(5,16));
+      const tempData = sensors.slice().reverse().map(s => s.temperature);
+      const humData  = sensors.slice().reverse().map(s => s.humidity);
+      if (sensorChart) sensorChart.destroy();
+      sensorChart = new Chart(document.getElementById('sensor-chart'), {
+        type: 'line',
+        data: {
+          labels: labels2,
+          datasets: [
+            {label:'溫度(°C)', data: tempData, borderColor:'#f97316', backgroundColor:'rgba(249,115,22,.1)', tension:.3, pointRadius:2},
+            {label:'濕度(%)', data: humData, borderColor:'#3b82f6', backgroundColor:'rgba(59,130,246,.1)', tension:.3, pointRadius:2, yAxisID:'y2'},
+          ]
+        },
+        options: {
+          responsive:true, plugins:{legend:{labels:{color:'#94a3b8',font:{size:10}}}},
+          scales:{
+            x:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(51,65,85,.5)'}},
+            y:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(51,65,85,.5)'}},
+            y2:{position:'right',ticks:{color:'#3b82f6',font:{size:9}},grid:{display:false},min:0,max:100},
+          }
+        }
+      });
+    }
+
+    // 最近評估列表
+    const listEl = document.getElementById('history-list');
+    if (preds.length === 0) {
+      listEl.innerHTML = '<div style="text-align:center;color:#475569;font-size:.82rem;padding:20px">暫無評估記錄</div>';
+    } else {
+      listEl.innerHTML = preds.slice(0, 10).map(p => `
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:6px;font-size:.78rem">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="color:#94a3b8">${p.recorded_at.slice(0,16)}</span>
+            <span style="color:${p.discount_pct>0?'#ef4444':'#22c55e'};font-weight:700">
+              ${p.discount_pct>0?'-'+p.discount_pct+'%':'無折扣'}
+            </span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
+            <div><div style="color:#64748b">Q_combined</div><div style="color:#facc15;font-weight:700">${(p.quality_combined||0).toFixed(1)}</div></div>
+            <div><div style="color:#64748b">DSL</div><div style="color:#38bdf8;font-weight:700">${(p.dsl_combined||0).toFixed(2)}天</div></div>
+            <div><div style="color:#64748b">最終價</div><div style="color:#f1f5f9;font-weight:700">$${p.final_price||'--'}</div></div>
+          </div>
+        </div>
+      `).join('');
+    }
+  } catch(e) {
+    console.warn('Load history error:', e);
+  }
+}
+
+// ── Tab 切換 ──────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    const tabs = ['nodes','assess','history'];
+    b.classList.toggle('active', tabs[i] === tab);
+  });
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+</script>
+</body>
+</html>

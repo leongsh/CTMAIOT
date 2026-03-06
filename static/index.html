@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>🍌 水果新鮮度智慧管理系統</title>
+<style>
+:root{
+  --green:#22c55e;--yellow:#eab308;--orange:#f97316;--red:#ef4444;
+  --blue:#3b82f6;--purple:#8b5cf6;--border:#334155;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#e2e8f0;min-height:100vh;padding:20px}
+.header{text-align:center;padding:28px 0 18px}
+.header h1{font-size:2rem;font-weight:800;letter-spacing:-1px}
+.header h1 span{color:#facc15}
+.header p{color:#94a3b8;margin-top:6px;font-size:.9rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:1200px;margin:0 auto}
+@media(max-width:768px){.grid{grid-template-columns:1fr}}
+.card{background:rgba(15,23,42,.9);border:1px solid var(--border);border-radius:16px;padding:22px;backdrop-filter:blur(10px)}
+.span2{grid-column:span 2}
+@media(max-width:768px){.span2{grid-column:span 1}}
+.card-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title::before{content:'';display:inline-block;width:4px;height:14px;background:#3b82f6;border-radius:2px}
+.paper-ref{display:inline-block;background:rgba(139,92,246,.2);border:1px solid rgba(139,92,246,.4);color:#c4b5fd;font-size:.68rem;padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle}
+/* 相機 */
+#live-image{width:100%;max-height:300px;object-fit:contain;border-radius:10px;background:#020617;border:1px solid var(--border)}
+.img-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.img-ts{font-size:.73rem;color:#475569}
+/* 感測器 */
+.sensor-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sensor-item{background:#1e293b;border-radius:10px;padding:14px;text-align:center}
+.sensor-icon{font-size:1.6rem;margin-bottom:4px}
+.sensor-label{font-size:.7rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.sensor-value{font-size:1.7rem;font-weight:700;color:#f1f5f9;margin-top:2px}
+.sensor-unit{font-size:.82rem;color:#94a3b8}
+.mqtt-status{display:flex;align-items:center;gap:6px;font-size:.73rem;color:#64748b;margin-top:10px}
+.dot{width:8px;height:8px;border-radius:50%;background:#ef4444}
+.dot.online{background:#22c55e;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+/* 控制 */
+.ctrl-group{margin-bottom:16px}
+.ctrl-group label{display:block;font-size:.83rem;color:#94a3b8;margin-bottom:6px;font-weight:500}
+.ctrl-group input[type="range"]{width:100%;accent-color:#3b82f6;height:6px;cursor:pointer}
+.slider-row{display:flex;justify-content:space-between;font-size:.72rem;color:#475569;margin-top:4px}
+.slider-val{font-size:1.3rem;font-weight:700;color:#facc15;text-align:center;margin-bottom:4px}
+.ctrl-group input[type="number"],.ctrl-group select{width:100%;background:#1e293b;border:1px solid var(--border);border-radius:8px;color:#f1f5f9;font-size:.95rem;padding:9px 12px;outline:none;transition:border-color .2s}
+.ctrl-group input[type="number"]:focus,.ctrl-group select:focus{border-color:#3b82f6}
+.ctrl-group select option{background:#1e293b}
+.manual-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.manual-toggle{font-size:.76rem;color:#3b82f6;cursor:pointer;text-decoration:underline;margin-bottom:8px;display:inline-block}
+#manual-inputs{display:none}
+/* 初始 DSL 設定區 */
+.dsl-init-box{background:#0f172a;border:1px solid #1e3a5f;border-radius:10px;padding:14px;margin-bottom:16px}
+.dsl-init-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.dsl-init-title{font-size:.78rem;font-weight:700;color:#38bdf8}
+.dsl-init-badge{font-size:.65rem;background:rgba(250,204,21,.15);color:#fde047;border:1px solid rgba(250,204,21,.3);padding:2px 8px;border-radius:4px}
+.dsl-init-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end}
+.dsl-init-q0{font-size:.78rem;color:#64748b;margin-top:8px;font-family:'Courier New',monospace}
+.dsl-init-q0 span{color:#4ade80;font-weight:700}
+/* 按鈕 */
+.btn-predict{width:100%;padding:13px;border-radius:10px;border:none;font-size:.95rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#3b82f6,#8b5cf6);color:#fff;transition:opacity .2s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-predict:hover{opacity:.9}.btn-predict:active{transform:scale(.98)}.btn-predict:disabled{opacity:.4;cursor:not-allowed}
+.btn-sm{background:transparent;border:1px solid var(--border);color:#94a3b8;padding:5px 12px;border-radius:7px;font-size:.77rem;cursor:pointer;transition:all .2s}
+.btn-sm:hover{border-color:#3b82f6;color:#3b82f6}
+.spinner{width:18px;height:18px;border:3px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-msg{background:#450a0a;border:1px solid #dc2626;color:#fca5a5;border-radius:8px;padding:10px 14px;font-size:.83rem;margin-top:10px;display:none}
+/* 複合品質評分面板 */
+.score-panel{display:none}
+.score-trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px}
+@media(max-width:600px){.score-trio{grid-template-columns:1fr}}
+.score-box{background:#1e293b;border:1px solid var(--border);border-radius:14px;padding:18px;text-align:center;position:relative;overflow:hidden}
+.score-box.combined{border-color:#3b82f6;background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(139,92,246,.08))}
+.score-box-label{font-size:.7rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.score-box-value{font-size:2.2rem;font-weight:900;line-height:1}
+.score-box-sub{font-size:.78rem;color:#64748b;margin-top:4px}
+.score-box-badge{display:inline-block;padding:4px 12px;border-radius:999px;font-size:.8rem;font-weight:700;margin-top:8px}
+.score-box-tag{position:absolute;top:10px;right:10px;font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:4px}
+.tag-ai{background:rgba(139,92,246,.3);color:#c4b5fd}
+.tag-formula{background:rgba(59,130,246,.3);color:#93c5fd}
+.tag-combined{background:rgba(250,204,21,.2);color:#fde047}
+.fusion-formula{background:#020617;border:1px solid #1e3a5f;border-radius:10px;padding:14px 18px;font-family:'Courier New',monospace;font-size:.88rem;color:#93c5fd;margin-bottom:10px;line-height:1.8}
+.fusion-formula .hi{color:#fde047;font-weight:700}
+.fusion-formula .val{color:#4ade80}
+.fusion-formula .op{color:#f472b6}
+.qbar-wrap{margin-top:14px}
+.qbar-label{display:flex;justify-content:space-between;font-size:.78rem;color:#64748b;margin-bottom:5px}
+.qbar-bg{background:#1e293b;border-radius:999px;height:16px;overflow:hidden;border:1px solid var(--border);position:relative}
+.qbar-fill{height:100%;border-radius:999px;transition:width 1.2s ease,background 1s ease}
+.qbar-threshold{position:absolute;top:0;bottom:0;width:2px;background:#ef4444;opacity:.7;left:70%}
+.qbar-threshold-label{position:absolute;top:-18px;font-size:.63rem;color:#ef4444;transform:translateX(-50%);white-space:nowrap}
+.dsl-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.dsl-box{background:#1e293b;border-radius:10px;padding:14px;text-align:center}
+.dsl-box-label{font-size:.7rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.dsl-box-value{font-size:1.6rem;font-weight:800;margin-top:4px}
+.dsl-box-unit{font-size:.78rem;color:#94a3b8}
+/* 折扣定價 */
+.price-card{display:none;background:linear-gradient(135deg,#1e3a5f,#1e293b);border:1px solid #3b82f6;border-radius:16px;padding:24px;text-align:center}
+.price-original{font-size:.95rem;color:#64748b;text-decoration:line-through}
+.price-final{font-size:3rem;font-weight:900;color:#facc15;line-height:1}
+.price-currency{font-size:1.1rem;vertical-align:super}
+.discount-badge-lg{display:inline-block;font-weight:700;font-size:.88rem;padding:5px 14px;border-radius:999px;margin-left:10px;vertical-align:middle}
+.price-reason{margin-top:10px;font-size:.83rem;color:#94a3b8}
+.price-dsl{margin-top:6px;font-size:.88rem;color:#38bdf8;font-weight:600}
+.discount-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:.83rem}
+.discount-table th{background:#1e293b;color:#94a3b8;padding:9px 12px;text-align:left;font-weight:600;font-size:.72rem;text-transform:uppercase;letter-spacing:.5px}
+.discount-table td{padding:9px 12px;border-top:1px solid var(--border);color:#e2e8f0}
+.discount-table tr.active-row td{background:rgba(59,130,246,.15);border-left:3px solid #3b82f6}
+.discount-table tr.active-row td:first-child{padding-left:9px}
+.disc-badge{display:inline-block;font-weight:700;font-size:.76rem;padding:2px 9px;border-radius:999px}
+.disc-no{background:#166534;color:#bbf7d0}
+.disc-yes{background:#dc2626;color:#fff}
+/* 公式推導 */
+.formula-panel{display:none}
+.formula-section{margin-bottom:20px}
+.formula-section h3{font-size:.82rem;font-weight:700;color:#94a3b8;margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--border)}
+.formula-box{background:#020617;border:1px solid #1e3a5f;border-radius:10px;padding:12px 16px;font-family:'Courier New',monospace;font-size:.85rem;color:#93c5fd;margin-bottom:6px;line-height:1.7}
+.formula-box .eq-num{float:right;color:#475569;font-size:.75rem}
+.formula-desc{font-size:.78rem;color:#64748b;margin-bottom:12px;line-height:1.6}
+.calc-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin-top:12px}
+.calc-step{background:#0f172a;border:1px solid var(--border);border-radius:10px;padding:12px}
+.calc-step-label{font-size:.68rem;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.calc-step-formula{font-family:'Courier New',monospace;font-size:.78rem;color:#93c5fd;margin-bottom:5px}
+.calc-step-value{font-size:1.2rem;font-weight:700;color:#facc15}
+.calc-step-unit{font-size:.72rem;color:#94a3b8;margin-left:3px}
+/* 初始 DSL 推導步驟（特殊樣式） */
+.calc-step.init-step{border-color:#1e3a5f;background:rgba(56,189,248,.05)}
+.calc-step.init-step .calc-step-value{color:#38bdf8}
+.param-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:10px}
+.param-table th{background:#1e293b;color:#94a3b8;padding:8px 12px;text-align:left;font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.param-table td{padding:8px 12px;border-top:1px solid var(--border);color:#e2e8f0}
+.param-table tr.highlight td{background:rgba(250,204,21,.08);color:#fde047}
+.divider{border:none;border-top:1px solid var(--border);margin:16px 0}
+.note{font-size:.72rem;color:#475569;margin-top:6px;line-height:1.5}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🍌 水果新鮮度 <span>智慧管理系統</span></h1>
+  <p>IoT 感測器 × 電腦視覺 AI × 論文品質公式 — 複合評分驅動動態定價</p>
+</div>
+
+<div class="grid">
+
+<!-- ① 即時相機 -->
+<div class="card span2">
+  <div class="card-title">📷 即時相機畫面</div>
+  <img id="live-image" src="/api/image" alt="Live Camera"/>
+  <div class="img-row">
+    <span class="img-ts" id="img-ts">最後更新：讀取中…</span>
+    <button class="btn-sm" onclick="refreshImage()">🔄 刷新圖像</button>
+  </div>
+</div>
+
+<!-- ② 感測器 -->
+<div class="card">
+  <div class="card-title">🌡️ 環境感測器 (MQTT)</div>
+  <div class="sensor-grid">
+    <div class="sensor-item">
+      <div class="sensor-icon">🌡️</div>
+      <div class="sensor-label">溫度</div>
+      <div class="sensor-value" id="temp-val">--</div>
+      <div class="sensor-unit">°C</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-icon">💧</div>
+      <div class="sensor-label">濕度</div>
+      <div class="sensor-value" id="hum-val">--</div>
+      <div class="sensor-unit">%</div>
+    </div>
+  </div>
+  <div class="mqtt-status">
+    <div class="dot" id="mqtt-dot"></div>
+    <span id="mqtt-status-text">等待 MQTT 數據…</span>
+  </div>
+</div>
+
+<!-- ③ 控制面板 -->
+<div class="card">
+  <div class="card-title">⚙️ 預測參數設定</div>
+
+  <!-- 產品選擇 -->
+  <div class="ctrl-group">
+    <label>產品類型</label>
+    <select id="product-select" onchange="onProductChange()">
+      <option value="banana">🍌 香蕉（預設）</option>
+      <option value="apple">🍎 蘋果</option>
+      <option value="tomato">🍅 番茄</option>
+      <option value="lettuce">🥬 萵苣</option>
+    </select>
+  </div>
+
+  <!-- 初始 DSL 設定區 -->
+  <div class="dsl-init-box">
+    <div class="dsl-init-header">
+      <span class="dsl-init-title">📅 初始 DSL 設定</span>
+      <span class="dsl-init-badge" id="dsl-init-source">產品預設值</span>
+    </div>
+    <div class="dsl-init-row">
+      <div class="ctrl-group" style="margin-bottom:0">
+        <label>初始 DSL（天）</label>
+        <input type="number" id="initial-dsl-input" value="10" min="1" max="60" step="1"
+               oninput="onInitialDslChange()"/>
+      </div>
+      <div style="text-align:center;padding-bottom:2px">
+        <button class="btn-sm" onclick="resetInitialDsl()" style="width:100%">↩ 還原預設</button>
+      </div>
+    </div>
+    <div class="dsl-init-q0" id="dsl-init-q0-preview">
+      Q₀ = 70 + k_comp_ref × <span id="dsl-q0-days">10</span> = <span id="dsl-q0-val">--</span>
+    </div>
+  </div>
+
+  <!-- 儲存天數 -->
+  <div class="ctrl-group">
+    <label>已儲存天數 (Storage Time)</label>
+    <div class="slider-val"><span id="storage-display">1</span> 天</div>
+    <input type="range" id="storage-slider" min="0" max="60" step="1" value="1"
+           oninput="document.getElementById('storage-display').textContent=this.value"/>
+    <div class="slider-row"><span>0 天</span><span>60 天</span></div>
+  </div>
+
+  <!-- 原始售價 -->
+  <div class="ctrl-group">
+    <label>商品原始售價（元）</label>
+    <input type="number" id="base-price" value="100" min="1" step="1"/>
+  </div>
+
+  <!-- 手動感測器 -->
+  <span class="manual-toggle" onclick="toggleManual()">📡 M5GO 離線？點此手動輸入感測器數值</span>
+  <div id="manual-inputs">
+    <div class="manual-row">
+      <div class="ctrl-group">
+        <label>溫度 (°C)</label>
+        <input type="number" id="manual-temp" value="25" min="-10" max="50" step="0.1"/>
+      </div>
+      <div class="ctrl-group">
+        <label>濕度 (%RH)</label>
+        <input type="number" id="manual-hum" value="75" min="0" max="100" step="1"/>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn-predict" id="predict-btn" onclick="runPredict()">
+    <span>🔍 執行 AI + 品質公式複合評估</span>
+    <div class="spinner" id="spinner"></div>
+  </button>
+  <div class="error-msg" id="error-msg"></div>
+</div>
+
+<!-- ④ 複合品質評分面板 -->
+<div class="card span2 score-panel" id="score-panel">
+  <div class="card-title">
+    📊 複合品質評分 <span class="paper-ref">AI × 論文公式(1)(2)(3)</span>
+  </div>
+  <div class="score-trio">
+    <div class="score-box" id="box-ai">
+      <span class="score-box-tag tag-ai">AI 模型</span>
+      <div class="score-box-label">AI 品質分數 Q_AI</div>
+      <div class="score-box-value" id="val-ai" style="color:#8b5cf6">--</div>
+      <div class="score-box-sub">= 100 − 腐敗指數</div>
+      <div class="score-box-sub" style="margin-top:4px">腐敗指數：<span id="val-spoilage" style="color:#f97316;font-weight:700">--</span></div>
+      <div class="score-box-badge" id="badge-ai">--</div>
+    </div>
+    <div class="score-box" id="box-formula">
+      <span class="score-box-tag tag-formula">論文公式</span>
+      <div class="score-box-label">公式品質分數 Q(t)</div>
+      <div class="score-box-value" id="val-formula" style="color:#3b82f6">--</div>
+      <div class="score-box-sub">= Q₀ − k_comp × t</div>
+      <div class="score-box-sub" style="margin-top:4px">DSL：<span id="val-dsl-formula" style="color:#38bdf8;font-weight:700">--</span> 天</div>
+      <div class="score-box-badge" id="badge-formula">--</div>
+    </div>
+    <div class="score-box combined" id="box-combined">
+      <span class="score-box-tag tag-combined">最終決策</span>
+      <div class="score-box-label">複合品質評分 Q_combined</div>
+      <div class="score-box-value" id="val-combined" style="color:#facc15">--</div>
+      <div class="score-box-sub">= 0.5 × Q(t) + 0.5 × Q_AI</div>
+      <div class="score-box-sub" style="margin-top:4px">複合 DSL：<span id="val-dsl-combined" style="color:#38bdf8;font-weight:700">--</span> 天</div>
+      <div class="score-box-badge" id="badge-combined">--</div>
+    </div>
+  </div>
+  <div class="fusion-formula">
+    <span class="hi">Q_combined</span>
+    <span class="op"> = </span>
+    <span class="hi">α</span> × <span class="val">Q(t)</span>
+    <span class="op"> + </span>
+    <span class="hi">(1−α)</span> × <span class="val">Q_AI</span>
+    <br>
+    <span style="color:#94a3b8">　　　　　= </span>
+    <span class="hi">0.5</span> × <span class="val" id="ff-qt-val">--</span>
+    <span class="op"> + </span>
+    <span class="hi">0.5</span> × <span class="val" id="ff-qai-val">--</span>
+    <span class="op"> = </span>
+    <span class="hi" id="ff-combined-val">--</span>
+  </div>
+  <div class="qbar-wrap">
+    <div class="qbar-label">
+      <span>複合品質分數</span><span id="qbar-pct">0 / 100</span>
+    </div>
+    <div class="qbar-bg">
+      <div class="qbar-fill" id="qbar" style="width:0%"></div>
+      <div class="qbar-threshold">
+        <span class="qbar-threshold-label">閾值 Q=70</span>
+      </div>
+    </div>
+    <div class="slider-row" style="margin-top:5px">
+      <span style="color:#ef4444">不可銷售 (Q&lt;70)</span>
+      <span style="color:#22c55e">可銷售 (Q≥70)</span>
+    </div>
+  </div>
+  <div class="dsl-row">
+    <div class="dsl-box">
+      <div class="dsl-box-label">論文公式 DSL</div>
+      <div class="dsl-box-value" id="dsl-formula-big" style="color:#3b82f6">--</div>
+      <div class="dsl-box-unit">天（依 Q(t) 計算）</div>
+    </div>
+    <div class="dsl-box" style="border:1px solid #3b82f6;background:rgba(59,130,246,.08)">
+      <div class="dsl-box-label">複合 DSL（折扣依據）</div>
+      <div class="dsl-box-value" id="dsl-combined-big" style="color:#facc15">--</div>
+      <div class="dsl-box-unit">天（依 Q_combined 計算）</div>
+    </div>
+  </div>
+</div>
+
+<!-- ⑤ 折扣定價卡 -->
+<div class="card span2 price-card" id="price-card">
+  <div class="card-title" style="justify-content:center">
+    💰 動態定價結果 <span class="paper-ref">論文 Table 5 × 複合 DSL</span>
+  </div>
+  <div class="price-original">原價：<span id="price-original">--</span> 元</div>
+  <div style="margin-top:10px">
+    <span class="price-currency">$</span>
+    <span class="price-final" id="price-final">--</span>
+    <span class="discount-badge-lg" id="discount-badge-lg">--</span>
+  </div>
+  <div class="price-dsl">複合 DSL：<span id="price-dsl">--</span> 天 → 觸發折扣規則</div>
+  <div class="price-reason" id="price-reason">--</div>
+  <hr class="divider"/>
+  <div style="text-align:left">
+    <div class="card-title" style="margin-bottom:10px">
+      📋 折扣觸發規則 <span class="paper-ref">論文 Table 5 消費者價格敏感度</span>
+    </div>
+    <table class="discount-table" id="discount-table">
+      <thead>
+        <tr><th>複合 DSL 剩餘天數</th><th>折扣</th><th>消費者動機</th><th>累積動機</th><th>說明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>DSL &gt; 7 天</td><td><span class="disc-badge disc-no">無折扣</span></td><td>—</td><td>—</td><td>新鮮，正常售價</td></tr>
+        <tr><td>3 &lt; DSL ≤ 7 天</td><td><span class="disc-badge disc-yes">-10%</span></td><td>12%</td><td>12%</td><td>輕微老化，9折</td></tr>
+        <tr><td>1 &lt; DSL ≤ 3 天</td><td><span class="disc-badge disc-yes">-25%</span></td><td>38% ★</td><td>50%</td><td>近效期，75折（最大動機區間）</td></tr>
+        <tr><td>0.5 &lt; DSL ≤ 1 天</td><td><span class="disc-badge disc-yes">-35%</span></td><td>35%</td><td>85%</td><td>急需銷售，65折</td></tr>
+        <tr><td>DSL ≤ 0.5 天</td><td><span class="disc-badge disc-yes">-50%</span></td><td>15%</td><td>100%</td><td>最終清倉，5折</td></tr>
+      </tbody>
+    </table>
+    <div class="note">★ 論文 Table 5：20-25% 折扣為最大單一動機區間（38% 消費者）；每增加 10% 折扣，購買機率提升 2.8 倍（Logistic Regression, χ²=47.3, p&lt;0.001）。</div>
+  </div>
+</div>
+
+<!-- ⑥ 公式推導面板 -->
+<div class="card span2 formula-panel" id="formula-panel">
+  <div class="card-title">
+    📐 品質降解公式推導 <span class="paper-ref">Chapter 3, Section 3.2</span>
+  </div>
+
+  <div class="formula-section">
+    <h3>初始 DSL → 反推 Q₀（v4.0 新增）</h3>
+    <div class="formula-box">Q₀_effective = Q_threshold + k_comp_ref × initial_DSL</div>
+    <div class="formula-box">k_comp_ref = k(20°C) × f_H(最佳濕度) × f_L(500lux) × f_A(0.3m/s)</div>
+    <div class="formula-desc">
+      k_comp_ref 為標準環境（20°C、最佳濕度）下的降解常數，確保初始 DSL 定義一致。<br>
+      使用者設定初始 DSL 後，系統自動反推 Q₀，後續所有公式以此 Q₀ 為起點計算。
+    </div>
+    <div class="calc-steps" id="init-dsl-steps"></div>
+  </div>
+
+  <div class="formula-section">
+    <h3>公式(1) — 零階動力學基礎模型</h3>
+    <div class="formula-box">Q(t) = Q₀ − k · t <span class="eq-num">(1)</span></div>
+    <div class="formula-desc">Q(t)：時間 t 時的品質分數（0~100）；Q₀：由初始 DSL 反推；k：降解率常數；t：儲存天數。</div>
+    <h3>公式(2) — Arrhenius 溫度修正</h3>
+    <div class="formula-box">k(T) = k_ref · exp( Eₐ/R · (1/T_ref − 1/T) ) <span class="eq-num">(2)</span></div>
+    <div class="formula-desc">k_ref：20°C 基準降解率；Eₐ：活化能（kJ/mol）；R = 8.314 J/mol·K；T_ref = 293.15 K。</div>
+    <h3>公式(3) — 綜合降解常數</h3>
+    <div class="formula-box">k_comp = k(T) · f_H(H) · f_L(L) · f_A(A) <span class="eq-num">(3)</span></div>
+    <div class="formula-desc">f_H：濕度影響；f_L：光照影響；f_A：氣流影響。</div>
+    <h3>AI 複合品質評分</h3>
+    <div class="formula-box">Q_AI = 100 − S　（S = AI 腐敗指數，0~100）</div>
+    <div class="formula-box">Q_combined = α · Q(t) + (1−α) · Q_AI　（α = 0.5）</div>
+    <div class="formula-box">DSL_combined = (Q_combined − 70) / k_comp</div>
+  </div>
+
+  <div class="formula-section" id="calc-steps-section" style="display:none">
+    <h3>本次計算過程</h3>
+    <div class="calc-steps" id="calc-steps"></div>
+  </div>
+
+  <div class="formula-section">
+    <h3>論文 Table 1 — 產品參數與預設初始 DSL</h3>
+    <table class="param-table" id="param-table">
+      <thead>
+        <tr><th>產品</th><th>活化能 Eₐ (kJ/mol)</th><th>k_ref (at 20°C)</th><th>最佳濕度 (%RH)</th><th>預設初始 DSL（天）</th><th>對應 Q₀</th></tr>
+      </thead>
+      <tbody id="param-table-body">
+        <tr><td>🍎 蘋果</td><td>55</td><td>0.8</td><td>90–95%</td><td>14</td><td>--</td></tr>
+        <tr><td>🍅 番茄</td><td>62</td><td>1.1</td><td>90–95%</td><td>10</td><td>--</td></tr>
+        <tr><td>🥬 萵苣</td><td>48</td><td>1.5</td><td>95–98%</td><td>7</td><td>--</td></tr>
+        <tr><td>🍌 香蕉</td><td>52</td><td>1.2</td><td>85–90%</td><td>10</td><td>--</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+</div><!-- /grid -->
+
+<script>
+// ─── 產品預設初始 DSL ─────────────────────────────────────────────────────
+const PRODUCT_DEFAULT_DSL = {
+  banana:  10,
+  apple:   14,
+  tomato:  10,
+  lettuce:  7,
+};
+
+// k_comp_ref（標準環境，由後端 /api/quality/params 載入）
+let productParams = {};
+let sensorData = {temperature: null, humidity: null};
+let manualMode = false;
+let userCustomDsl = false;  // 是否已被使用者手動修改
+
+// ─── 載入產品參數（含 k_comp_ref 與 Q₀）──────────────────────────────────
+async function loadProductParams() {
+  try {
+    const r = await fetch('/api/quality/params');
+    const d = await r.json();
+    productParams = d.products || {};
+    updateQ0Preview();
+    updateParamTable();
+  } catch(e) {
+    console.warn('無法載入產品參數:', e);
+  }
+}
+
+function updateQ0Preview() {
+  const product = document.getElementById('product-select').value;
+  const days = parseFloat(document.getElementById('initial-dsl-input').value) || 10;
+  document.getElementById('dsl-q0-days').textContent = days;
+
+  const p = productParams[product];
+  if (p && p.k_comp_ref) {
+    const q0 = 70 + p.k_comp_ref * days;
+    const capped = Math.min(100, Math.max(71, q0));
+    document.getElementById('dsl-q0-val').textContent = capped.toFixed(2);
+  } else {
+    document.getElementById('dsl-q0-val').textContent = '--';
+  }
+}
+
+function updateParamTable() {
+  const rows = document.querySelectorAll('#param-table-body tr');
+  const products = ['apple', 'tomato', 'lettuce', 'banana'];
+  rows.forEach((row, i) => {
+    const pid = products[i];
+    const p = productParams[pid];
+    if (p && p.q0_from_initial_dsl !== undefined) {
+      row.cells[5].textContent = p.q0_from_initial_dsl.toFixed(2);
+    }
+  });
+}
+
+function onProductChange() {
+  if (!userCustomDsl) {
+    const product = document.getElementById('product-select').value;
+    const defaultDsl = PRODUCT_DEFAULT_DSL[product] || 10;
+    document.getElementById('initial-dsl-input').value = defaultDsl;
+    document.getElementById('storage-slider').max = defaultDsl * 2;
+    document.getElementById('dsl-init-source').textContent = '產品預設值';
+    document.getElementById('dsl-init-source').style.background = 'rgba(250,204,21,.15)';
+    document.getElementById('dsl-init-source').style.color = '#fde047';
+  }
+  updateQ0Preview();
+}
+
+function onInitialDslChange() {
+  const product = document.getElementById('product-select').value;
+  const defaultDsl = PRODUCT_DEFAULT_DSL[product] || 10;
+  const current = parseFloat(document.getElementById('initial-dsl-input').value);
+  userCustomDsl = (current !== defaultDsl);
+  if (userCustomDsl) {
+    document.getElementById('dsl-init-source').textContent = '使用者自訂';
+    document.getElementById('dsl-init-source').style.background = 'rgba(59,130,246,.2)';
+    document.getElementById('dsl-init-source').style.color = '#93c5fd';
+  } else {
+    document.getElementById('dsl-init-source').textContent = '產品預設值';
+    document.getElementById('dsl-init-source').style.background = 'rgba(250,204,21,.15)';
+    document.getElementById('dsl-init-source').style.color = '#fde047';
+  }
+  updateQ0Preview();
+}
+
+function resetInitialDsl() {
+  const product = document.getElementById('product-select').value;
+  document.getElementById('initial-dsl-input').value = PRODUCT_DEFAULT_DSL[product] || 10;
+  userCustomDsl = false;
+  document.getElementById('dsl-init-source').textContent = '產品預設值';
+  document.getElementById('dsl-init-source').style.background = 'rgba(250,204,21,.15)';
+  document.getElementById('dsl-init-source').style.color = '#fde047';
+  updateQ0Preview();
+}
+
+// ─── MQTT 感測器輪詢 ──────────────────────────────────────────────────────
+async function fetchSensor() {
+  try {
+    const r = await fetch('/api/sensor');
+    const d = await r.json();
+    if (d.temperature !== null && d.temperature !== undefined) {
+      sensorData = d;
+      document.getElementById('temp-val').textContent = d.temperature.toFixed(1);
+      document.getElementById('hum-val').textContent  = d.humidity.toFixed(1);
+      document.getElementById('mqtt-dot').classList.add('online');
+      document.getElementById('mqtt-status-text').textContent =
+        '已連線 · 最後更新 ' + (d.timestamp || '--');
+    } else {
+      document.getElementById('mqtt-status-text').textContent = '等待 M5GO 裝置上線…';
+    }
+  } catch(e) {
+    document.getElementById('mqtt-status-text').textContent = '感測器連線失敗';
+  }
+}
+
+function toggleManual() {
+  manualMode = !manualMode;
+  document.getElementById('manual-inputs').style.display = manualMode ? 'block' : 'none';
+}
+
+function refreshImage() {
+  document.getElementById('live-image').src = '/api/image?t=' + Date.now();
+  document.getElementById('img-ts').textContent = '最後更新：' + new Date().toLocaleTimeString('zh-TW');
+}
+
+// ─── 主預測函數 ───────────────────────────────────────────────────────────
+async function runPredict() {
+  const btn     = document.getElementById('predict-btn');
+  const spinner = document.getElementById('spinner');
+  const errMsg  = document.getElementById('error-msg');
+  errMsg.style.display = 'none';
+
+  const storageDays = parseFloat(document.getElementById('storage-slider').value);
+  const basePrice   = parseFloat(document.getElementById('base-price').value) || 100;
+  const product     = document.getElementById('product-select').value;
+  const initialDsl  = parseFloat(document.getElementById('initial-dsl-input').value) || PRODUCT_DEFAULT_DSL[product];
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+
+  try {
+    const body = {
+      storage_days: storageDays,
+      base_price: basePrice,
+      product: product,
+      initial_dsl: initialDsl,
+    };
+    if (manualMode) {
+      const mt = parseFloat(document.getElementById('manual-temp').value);
+      const mh = parseFloat(document.getElementById('manual-hum').value);
+      if (!isNaN(mt)) body.temperature = mt;
+      if (!isNaN(mh)) body.humidity = mh;
+    } else if (sensorData.temperature !== null) {
+      body.temperature = sensorData.temperature;
+      body.humidity    = sensorData.humidity;
+    }
+
+    let d = null;
+    let usedAI = false;
+
+    try {
+      const r = await fetch('/api/predict', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          storage_time: storageDays, base_price: basePrice, product: product,
+          temperature: body.temperature, humidity: body.humidity,
+          initial_dsl: initialDsl,
+        })
+      });
+      if (r.ok) {
+        d = normalizePredictResponse(await r.json());
+        usedAI = true;
+      } else if (r.status !== 503) {
+        const err = await r.json();
+        throw new Error(err.detail || 'HTTP ' + r.status);
+      }
+    } catch(e) {
+      if (!e.message.includes('503') && !e.message.includes('fetch')) throw e;
+    }
+
+    if (!usedAI) {
+      const r2 = await fetch('/api/quality', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)
+      });
+      if (!r2.ok) { const err = await r2.json(); throw new Error(err.detail || 'HTTP ' + r2.status); }
+      d = normalizeQualityResponse(await r2.json());
+    }
+
+    showResult(d);
+  } catch(e) {
+    errMsg.textContent = '❌ 預測失敗：' + e.message;
+    errMsg.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+  }
+}
+
+function normalizePredictResponse(d) {
+  return {
+    has_ai: true,
+    ai_spoilage: d.spoilage_level,
+    quality_ai: d.quality_ai,
+    ai_label: d.ai_label,
+    ai_color: d.ai_color,
+    quality_formula: d.quality_formula,
+    dsl_formula: d.dsl_formula,
+    quality_combined: d.quality_combined,
+    freshness_label: d.freshness_label,
+    freshness_color: d.freshness_color,
+    dsl_combined: d.dsl_combined,
+    alpha_formula: d.alpha_formula,
+    alpha_ai: d.alpha_ai,
+    initial_dsl: d.initial_dsl,
+    discount_pct: d.discount_pct,
+    discount_reason: d.discount_reason,
+    base_price: d.base_price,
+    final_price: d.final_price,
+    formula: d.formula,
+    sensor: d.sensor,
+  };
+}
+
+function normalizeQualityResponse(d) {
+  return {
+    has_ai: false,
+    ai_spoilage: null,
+    quality_ai: null,
+    ai_label: '—（AI 模型未啟動）',
+    ai_color: '#475569',
+    quality_formula: d.quality_formula,
+    dsl_formula: d.dsl_formula,
+    quality_combined: d.quality_score,
+    freshness_label: d.freshness_label,
+    freshness_color: d.freshness_color,
+    dsl_combined: d.dsl_days,
+    alpha_formula: 1.0,
+    alpha_ai: 0.0,
+    initial_dsl: d.initial_dsl,
+    discount_pct: d.discount_pct,
+    discount_reason: d.discount_reason,
+    base_price: d.base_price,
+    final_price: d.final_price,
+    formula: d.formula,
+    sensor: d.sensor,
+  };
+}
+
+// ─── 展示結果 ─────────────────────────────────────────────────────────────
+function showResult(d) {
+  const hasAI = d.has_ai && d.quality_ai !== null;
+
+  // AI 欄
+  if (hasAI) {
+    document.getElementById('val-ai').textContent = d.quality_ai.toFixed(1);
+    document.getElementById('val-ai').style.color = '#8b5cf6';
+    document.getElementById('val-spoilage').textContent = d.ai_spoilage.toFixed(1);
+    setBadge('badge-ai', d.quality_ai, d.ai_label, d.ai_color);
+    document.getElementById('box-ai').style.opacity = '1';
+  } else {
+    document.getElementById('val-ai').textContent = 'N/A';
+    document.getElementById('val-ai').style.color = '#475569';
+    document.getElementById('val-spoilage').textContent = '--';
+    const b = document.getElementById('badge-ai');
+    b.textContent = 'AI 模型未啟動'; b.style.background = '#1e293b'; b.style.color = '#475569';
+    document.getElementById('box-ai').style.opacity = '.5';
+  }
+
+  // 論文公式欄
+  document.getElementById('val-formula').textContent = d.quality_formula.toFixed(1);
+  document.getElementById('val-dsl-formula').textContent = d.dsl_formula.toFixed(2);
+  setBadge('badge-formula', d.quality_formula, null, null);
+
+  // 複合評分欄
+  document.getElementById('val-combined').textContent = d.quality_combined.toFixed(1);
+  document.getElementById('val-combined').style.color = d.freshness_color;
+  document.getElementById('val-dsl-combined').textContent = d.dsl_combined.toFixed(2);
+  setBadge('badge-combined', d.quality_combined, d.freshness_label, d.freshness_color);
+
+  // 融合公式
+  document.getElementById('ff-qt-val').textContent  = d.quality_formula.toFixed(2);
+  document.getElementById('ff-qai-val').textContent = hasAI ? d.quality_ai.toFixed(2) : d.quality_formula.toFixed(2);
+  document.getElementById('ff-combined-val').textContent = d.quality_combined.toFixed(2);
+
+  // 進度條
+  const qs = d.quality_combined;
+  const bar = document.getElementById('qbar');
+  bar.style.width = Math.min(qs, 100) + '%';
+  bar.style.background = qs >= 85 ? '#22c55e' : qs >= 70 ? '#eab308' : qs >= 55 ? '#f97316' : '#ef4444';
+  document.getElementById('qbar-pct').textContent = qs.toFixed(1) + ' / 100';
+
+  // DSL 大字
+  document.getElementById('dsl-formula-big').textContent  = d.dsl_formula.toFixed(2);
+  document.getElementById('dsl-combined-big').textContent = d.dsl_combined.toFixed(2);
+
+  // 折扣定價
+  document.getElementById('price-original').textContent = d.base_price;
+  document.getElementById('price-final').textContent    = d.final_price;
+  document.getElementById('price-dsl').textContent      = d.dsl_combined.toFixed(2);
+  document.getElementById('price-reason').textContent   = d.discount_reason;
+  const badge = document.getElementById('discount-badge-lg');
+  if (d.discount_pct > 0) {
+    badge.textContent = '-' + d.discount_pct + '%';
+    badge.style.background = '#dc2626'; badge.style.color = '#fff';
+  } else {
+    badge.textContent = '無折扣';
+    badge.style.background = '#166534'; badge.style.color = '#bbf7d0';
+  }
+  highlightDiscountRow(d.dsl_combined);
+
+  // 初始 DSL 推導步驟
+  if (d.initial_dsl) showInitDslSteps(d.initial_dsl, d.formula);
+  if (d.formula) showCalcSteps(d);
+
+  document.getElementById('score-panel').style.display   = 'block';
+  document.getElementById('price-card').style.display    = 'block';
+  document.getElementById('formula-panel').style.display = 'block';
+  document.getElementById('score-panel').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function showInitDslSteps(initDsl, f) {
+  const html =
+    initStep('標準環境 k_comp_ref',
+             'k(20°C) × f_H(最佳濕度) × f_L(500lux) × f_A(0.3m/s)',
+             f.k_comp_ref, '品質點/天') +
+    initStep('初始 DSL（使用者設定）',
+             initDsl.is_custom ? '使用者自訂' : '產品預設值',
+             initDsl.used_days, '天') +
+    initStep('反推 Q₀_effective',
+             '70 + ' + f.k_comp_ref + ' × ' + initDsl.used_days,
+             initDsl.q0_effective, '/ 100');
+  document.getElementById('init-dsl-steps').innerHTML = html;
+}
+
+function initStep(label, formula, val, unit) {
+  return '<div class="calc-step init-step">' +
+    '<div class="calc-step-label">' + label + '</div>' +
+    '<div class="calc-step-formula">' + formula + '</div>' +
+    '<div class="calc-step-value">' + val + '<span class="calc-step-unit">' + unit + '</span></div>' +
+    '</div>';
+}
+
+function showCalcSteps(d) {
+  const f = d.formula;
+  const T_K = (d.sensor.temperature + 273.15).toFixed(2);
+  document.getElementById('calc-steps-section').style.display = 'block';
+  const hasAI = d.has_ai && d.quality_ai !== null;
+  let html =
+    step('步驟1 — 公式(2) Arrhenius',
+         'k(T) = ' + f.k_ref + ' × exp( ' + f.Ea_kJ + 'k/8.314 × (1/293.15 − 1/' + T_K + ') )',
+         f.k_T, '品質點/天') +
+    step('步驟2 — 濕度 f_H', 'H = ' + d.sensor.humidity + '% RH', f.f_H, '倍率') +
+    step('步驟3 — 光照 f_L', 'L = ' + d.sensor.light_lux + ' lux', f.f_L, '倍率') +
+    step('步驟4 — 氣流 f_A', 'A = ' + d.sensor.air_velocity + ' m/s', f.f_A, '倍率') +
+    step('步驟5 — 公式(3) k_comp',
+         'k_comp = ' + f.k_T + ' × ' + f.f_H + ' × ' + f.f_L + ' × ' + f.f_A,
+         f.k_comp, '品質點/天') +
+    step('步驟6 — 公式(1) Q(t)',
+         'Q(t) = ' + f.Q0 + ' − ' + f.k_comp + ' × ' + f.storage_days,
+         d.quality_formula.toFixed(2), '/ 100');
+  if (hasAI) {
+    html +=
+      step('步驟7 — AI 品質分數 Q_AI',
+           'Q_AI = 100 − ' + d.ai_spoilage.toFixed(2),
+           d.quality_ai.toFixed(2), '/ 100') +
+      step('步驟8 — 複合評分 Q_combined',
+           'Q = 0.5 × ' + d.quality_formula.toFixed(2) + ' + 0.5 × ' + d.quality_ai.toFixed(2),
+           d.quality_combined.toFixed(2), '/ 100') +
+      step('步驟9 — 複合 DSL',
+           'DSL = (' + d.quality_combined.toFixed(2) + ' − ' + f.Q_threshold + ') / ' + f.k_comp,
+           d.dsl_combined.toFixed(2), '天');
+  } else {
+    html += step('步驟7 — 論文公式 DSL',
+           'DSL = (' + d.quality_formula.toFixed(2) + ' − ' + f.Q_threshold + ') / ' + f.k_comp,
+           d.dsl_combined.toFixed(2), '天');
+  }
+  document.getElementById('calc-steps').innerHTML = html;
+}
+
+function step(label, formula, val, unit) {
+  return '<div class="calc-step">' +
+    '<div class="calc-step-label">' + label + '</div>' +
+    '<div class="calc-step-formula">' + formula + '</div>' +
+    '<div class="calc-step-value">' + val + '<span class="calc-step-unit">' + unit + '</span></div>' +
+    '</div>';
+}
+
+function setBadge(id, score, label, color) {
+  const el = document.getElementById(id);
+  const info = getFreshnessInfo(score);
+  el.textContent = label || info.label;
+  el.style.background = (color || info.color) + '33';
+  el.style.color = color || info.color;
+}
+
+function getFreshnessInfo(score) {
+  if (score >= 85) return {label:'優質新鮮 🟢', color:'#22c55e'};
+  if (score >= 70) return {label:'良好新鮮 🟡', color:'#eab308'};
+  if (score >= 55) return {label:'輕微老化 🟠', color:'#f97316'};
+  if (score >= 40) return {label:'中度老化 🔴', color:'#ef4444'};
+  return {label:'嚴重老化 ⚫', color:'#7f1d1d'};
+}
+
+function highlightDiscountRow(dsl) {
+  const rows = document.querySelectorAll('#discount-table tbody tr');
+  rows.forEach(r => r.classList.remove('active-row'));
+  let idx = dsl > 7 ? 0 : dsl > 3 ? 1 : dsl > 1 ? 2 : dsl > 0.5 ? 3 : 4;
+  if (rows[idx]) rows[idx].classList.add('active-row');
+}
+
+// ─── 初始化 ───────────────────────────────────────────────────────────────
+fetchSensor();
+setInterval(fetchSensor, 6000);
+setInterval(refreshImage, 10000);
+document.getElementById('live-image').onload = () => {
+  document.getElementById('img-ts').textContent = '最後更新：' + new Date().toLocaleTimeString('zh-TW');
+};
+loadProductParams();
+</script>
+</body>
+</html>

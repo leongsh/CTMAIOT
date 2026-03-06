@@ -1,0 +1,12 @@
+# Render.com 部署設定
+# 免費方案支援 512MB RAM，足夠載入 CPU 版 PyTorch 模型
+
+services:
+  - type: web
+    name: fruit-freshness-app
+    runtime: python
+    buildCommand: pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0

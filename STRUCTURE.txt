@@ -1,0 +1,11 @@
+fruit-freshness-app/
+├── app.py                    ← FastAPI 後端 (MQTT + 模型推理 + API)
+├── hybrid_model.py           ← PyTorch 模型架構定義
+├── requirements.txt          ← Python 套件清單
+├── render.yaml               ← Render.com 自動部署設定
+├── Dockerfile                ← Docker 容器化部署設定
+├── test_local.py             ← 本機測試腳本
+├── spoilage_model_rnn.pth    ← [你需要放入] 訓練好的模型權重
+├── sensor_scaler.pkl         ← [你需要放入] StandardScaler
+└── static/
+    └── index.html            ← 前端網頁 (全功能單一檔案)
