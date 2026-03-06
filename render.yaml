@@ -5,6 +5,7 @@ services:
   - type: web
     name: fruit-freshness-app
     runtime: python
+    autoDeploy: true
     buildCommand: pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     envVars:

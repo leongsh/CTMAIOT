@@ -828,7 +828,7 @@ function highlightDiscountRow(dsl) {
 // ─── 初始化 ───────────────────────────────────────────────────────────────
 fetchSensor();
 setInterval(fetchSensor, 6000);
-setInterval(refreshImage, 10000);
+setInterval(refreshImage, 5000);  // 每 5 秒刷新相機
 document.getElementById('live-image').onload = () => {
   document.getElementById('img-ts').textContent = '最後更新：' + new Date().toLocaleTimeString('zh-TW');
 };

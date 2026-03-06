@@ -398,6 +398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMap();
   await loadNodes();
   setInterval(loadNodes, 15000);  // 每 15 秒自動更新
+  setInterval(refreshCamera, 5000); // 每 5 秒刷新相機
 });
 
 // ── 地圖初始化 ────────────────────────────────────────────────────────────────
