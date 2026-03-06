@@ -37,7 +37,7 @@ def init_db():
             id          INTEGER PRIMARY KEY AUTOINCREMENT,
             username    TEXT    UNIQUE NOT NULL,
             password    TEXT    NOT NULL,
-            role        TEXT    NOT NULL DEFAULT 'operator',  -- admin | operator
+            role        TEXT    NOT NULL DEFAULT 'user',  -- admin | user
             display_name TEXT   DEFAULT '',
             created_at  TEXT    DEFAULT (datetime('now')),
             last_login  TEXT
@@ -104,12 +104,18 @@ def init_db():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_pred_node ON predictions(node_id)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_pred_time ON predictions(recorded_at)")
 
-    # ── 預設管理員帳號 ─────────────────────────────────────────────────────────
+    # ── 預設帳號 ───────────────────────────────────────────────────────────────
     admin_pw = _hash_password("admin123")
     cur.execute("""
         INSERT OR IGNORE INTO users (username, password, role, display_name)
         VALUES (?, ?, 'admin', '系統管理員')
     """, ("admin", admin_pw))
+
+    user_pw = _hash_password("user123")
+    cur.execute("""
+        INSERT OR IGNORE INTO users (username, password, role, display_name)
+        VALUES (?, ?, 'user', '普通用戶')
+    """, ("user", user_pw))
 
     # ── 預設節點（現有 ISM 貨架）──────────────────────────────────────────────
     cur.execute("""

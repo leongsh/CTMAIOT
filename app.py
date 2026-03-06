@@ -224,7 +224,7 @@ class LoginRequest(BaseModel):
 class CreateUserRequest(BaseModel):
     username: str
     password: str
-    role: str = "operator"
+    role: str = "user"  # admin | user
     display_name: str = ""
 
 
@@ -276,6 +276,9 @@ async def list_users(admin: dict = Depends(require_admin)):
 
 @app.post("/api/auth/users")
 async def create_user(req: CreateUserRequest, admin: dict = Depends(require_admin)):
+    # 角色驗證：只允許 admin 或 user
+    if req.role not in ("admin", "user"):
+        raise HTTPException(status_code=400, detail="角色必須為 admin 或 user")
     conn = get_db()
     try:
         conn.execute(
@@ -287,7 +290,7 @@ async def create_user(req: CreateUserRequest, admin: dict = Depends(require_admi
         raise HTTPException(status_code=400, detail="用戶名稱已存在")
     finally:
         conn.close()
-    return {"message": f"用戶 {req.username} 已建立"}
+    return {"message": f"用戶 {req.username} 已建立，角色：{req.role}"}
 
 
 @app.delete("/api/auth/users/{user_id}")

@@ -43,6 +43,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .badge{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 8px;border-radius:999px}
 .badge-admin{background:rgba(139,92,246,.2);color:#c4b5fd;border:1px solid rgba(139,92,246,.3)}
 .badge-operator{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.badge-user{background:rgba(34,197,94,.15);color:#86efac;border:1px solid rgba(34,197,94,.3)}
 .badge-active{background:#166534;color:#bbf7d0}
 .badge-inactive{background:#1e293b;color:#64748b;border:1px solid var(--border)}
 .badge-maintenance{background:#713f12;color:#fde68a}
@@ -304,7 +305,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
     <div class="form-group">
       <label>角色</label>
       <select id="f-role">
-        <option value="operator">操作員</option>
+        <option value="user">普通用戶</option>
         <option value="admin">管理員</option>
       </select>
     </div>
@@ -489,7 +490,7 @@ async function loadUsers() {
         <td style="color:#64748b">${u.id}</td>
         <td style="font-weight:600">${u.username}</td>
         <td style="color:#94a3b8">${u.display_name || '--'}</td>
-        <td><span class="badge badge-${u.role}">${u.role === 'admin' ? '管理員' : '操作員'}</span></td>
+        <td><span class="badge badge-${u.role}">${u.role === 'admin' ? '管理員' : '普通用戶'}</span></td>
         <td style="color:#64748b;font-size:.75rem">${(u.created_at||'').slice(0,16)}</td>
         <td style="color:#64748b;font-size:.75rem">${(u.last_login||'--').slice(0,16)}</td>
         <td>${u.username !== 'admin' ? `<button class="btn-danger" onclick="deleteUser(${u.id},'${u.username}')">刪除</button>` : '<span style="color:#475569;font-size:.72rem">系統帳號</span>'}</td>
@@ -502,7 +503,7 @@ function openUserModal() {
   document.getElementById('f-username').value     = '';
   document.getElementById('f-password').value     = '';
   document.getElementById('f-display-name').value = '';
-  document.getElementById('f-role').value         = 'operator';
+  document.getElementById('f-role').value         = 'user';
   document.getElementById('user-modal').classList.add('open');
 }
 

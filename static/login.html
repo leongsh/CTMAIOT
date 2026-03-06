@@ -125,6 +125,10 @@ body{
       <span>admin / admin123</span>
       <span class="demo-role">管理員</span>
     </div>
+    <div class="demo-row">
+      <span>user / user123</span>
+      <span class="demo-role" style="color:#22c55e">普通用戶</span>
+    </div>
   </div>
 </div>
 
@@ -161,12 +165,8 @@ async function doLogin() {
     localStorage.setItem('ctma_token', data.access_token);
     localStorage.setItem('ctma_user', JSON.stringify(data.user));
 
-    // 依角色導向
-    if (data.user.role === 'admin') {
-      window.location.href = '/app';
-    } else {
-      window.location.href = '/app';
-    }
+    // 依角色導向（admin 和 user 都先進應用層，admin 可從應用層進後台）
+    window.location.href = '/app';
   } catch (e) {
     errMsg.textContent = '❌ ' + e.message;
     errMsg.style.display = 'block';
@@ -180,7 +180,8 @@ async function doLogin() {
 const token = localStorage.getItem('ctma_token');
 if (token) {
   fetch('/api/auth/me', {headers: {'Authorization': 'Bearer ' + token}})
-    .then(r => { if (r.ok) window.location.href = '/app'; })
+    .then(r => r.ok ? r.json() : null)
+    .then(u => { if (u) window.location.href = '/app'; })
     .catch(() => {});
 }
 </script>
