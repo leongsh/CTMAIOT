@@ -27,6 +27,7 @@ RUN pip install --no-cache-dir \
     scikit-learn \
     joblib \
     python-multipart \
+    requests \
     "python-jose[cryptography]" \
     "passlib[bcrypt]" \
     cryptography \
