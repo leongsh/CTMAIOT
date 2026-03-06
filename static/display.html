@@ -316,6 +316,21 @@
           <div class="dsl-key">Predicted Waste Rate</div>
         </div>
       </div>
+      <!-- AI 腐敗指數 -->
+      <div style="margin-top:14px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid #1e293b;border-radius:10px;text-align:left">
+        <div style="font-size:.6rem;letter-spacing:1.2px;color:#64748b;text-transform:uppercase;margin-bottom:6px">🤖 AI Spoilage Index</div>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <span id="ai-spoilage-val" style="font-size:1.5rem;font-weight:800;color:#22c55e">--</span>
+            <span style="font-size:.75rem;color:#64748b"> / 100</span>
+          </div>
+          <div id="ai-label" style="font-size:.72rem;font-weight:700;color:#22c55e;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:999px;padding:3px 10px">等待推理</div>
+        </div>
+        <div style="margin-top:6px;height:4px;background:#1e293b;border-radius:999px;overflow:hidden">
+          <div id="ai-bar" style="height:100%;width:0%;background:#22c55e;border-radius:999px;transition:width .8s ease"></div>
+        </div>
+        <div id="ai-infer-ts" style="font-size:.6rem;color:#475569;margin-top:5px">尚未推理</div>
+      </div>
     </div>
 
     <!-- 價格卡 -->
@@ -653,6 +668,26 @@ async function fetchAndUpdate() {
     if (light != null) pushMiniChart('chart-light',  light);
     if (air   != null) pushMiniChart('chart-air',    air);
 
+    // AI 腐敗指數
+    const ai = data.ai || {};
+    if (ai.available && ai.spoilage != null) {
+      const sp    = ai.spoilage;
+      const color = ai.color || '#22c55e';
+      document.getElementById('ai-spoilage-val').textContent = sp.toFixed(1);
+      document.getElementById('ai-spoilage-val').style.color = color;
+      document.getElementById('ai-label').textContent = ai.label || '';
+      document.getElementById('ai-label').style.color = color;
+      document.getElementById('ai-label').style.background = color + '22';
+      document.getElementById('ai-label').style.borderColor = color + '55';
+      document.getElementById('ai-bar').style.width = sp.toFixed(1) + '%';
+      document.getElementById('ai-bar').style.background = color;
+      document.getElementById('ai-infer-ts').textContent =
+        '最後推理：' + (ai.inferred_at || '').slice(11, 19);
+    } else {
+      document.getElementById('ai-infer-ts').textContent =
+        ai.available === false ? '等待 AI 推理（每 10 秒自動執行）' : '等待感測器數據…';
+    }
+
     // 品質數據
     const q = data.quality;
     if (q) {
@@ -700,7 +735,7 @@ async function fetchAndUpdate() {
       document.getElementById('price-base').textContent = `Base Price: $${basePrice.toFixed(2)}/kg`;
       document.getElementById('price-main').textContent = basePrice.toFixed(2);
       document.getElementById('discount-reason').textContent =
-        online ? '感測器已連線，等待品質評估…' : '感測器離線，請確認裝置連線';
+        online ? '感測器已連線，等待 AI 推理（15 秒後首次執行）…' : '感測器離線，請確認裝置連線';
     }
 
     // 歷史圖表

@@ -105,6 +105,9 @@ sensor_cache: dict = {
 model_ai: HybridModel = None
 scaler = None
 
+# AI 推理結果快取：{node_id: {spoilage, label, color, timestamp, quality_data}}
+ai_cache: dict = {}
+
 # ─── 圖像前處理 ──────────────────────────────────────────────────────────────
 infer_transform = transforms.Compose([
     transforms.Resize((IMG_HEIGHT, IMG_WIDTH)),
@@ -178,8 +181,147 @@ def start_mqtt():
             time.sleep(5)
 
 
+# ─── AI 自動推理背景任務 ─────────────────────────────────────────────────────
+AI_INFER_INTERVAL = 10  # 秒
+
+
+def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
+    """
+    對單一節點執行 AI 推理：
+    1. 從感測器快取取得溫濕度
+    2. 從相機 URL 抓取圖像
+    3. 執行 HybridModel 推理
+    4. 計算複合品質評分
+    回傳推理結果字典，失敗時回傳 None
+    """
+    global model_ai, scaler, sensor_cache, ai_cache
+
+    if model_ai is None or scaler is None:
+        return None
+
+    sensor = sensor_cache.get(node_id, {})
+    temp = sensor.get("temperature")
+    hum  = sensor.get("humidity")
+    if temp is None or hum is None:
+        logger.debug("AI inference skip [%s]: no sensor data", node_id)
+        return None
+
+    # 取得相機 URL
+    cam_url = node.get("camera_url") or CAMERA_URL
+
+    try:
+        import requests as req_lib
+        resp = req_lib.get(cam_url, timeout=8)
+        resp.raise_for_status()
+        image = Image.open(io.BytesIO(resp.content)).convert("RGB")
+    except Exception as e:
+        logger.warning("AI inference [%s] camera fetch failed: %s", node_id, e)
+        return None
+
+    try:
+        img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
+
+        model_hum     = hum / 100.0 if hum > 1.0 else hum
+        storage_days  = ai_cache.get(node_id, {}).get("storage_days", 1.0)
+        storage_hours = storage_days * 24.0
+        raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
+        scaled_sensor = scaler.transform(raw_sensor)
+        sensor_tensor = torch.tensor(scaled_sensor, dtype=torch.float32).to(DEVICE)
+
+        with torch.no_grad():
+            prediction = model_ai(img_tensor, sensor_tensor).item()
+        spoilage = float(np.clip(prediction, 0, 100))
+    except Exception as e:
+        logger.warning("AI inference [%s] model error: %s", node_id, e)
+        return None
+
+    # AI 標籤
+    if spoilage < 20:   ai_label, ai_color = "非常新鮮 🟢", "#22c55e"
+    elif spoilage < 40: ai_label, ai_color = "新鮮 🟡",     "#eab308"
+    elif spoilage < 60: ai_label, ai_color = "輕微腐敗 🟠", "#f97316"
+    elif spoilage < 80: ai_label, ai_color = "中度腐敗 🔴", "#ef4444"
+    else:               ai_label, ai_color = "嚴重腐敗 ⚫", "#7f1d1d"
+
+    # 計算複合品質評分
+    product     = node.get("product_type", "banana")
+    initial_dsl = node.get("initial_dsl")
+    base_price  = node.get("base_price", 100.0)
+    if initial_dsl is None:
+        params_p = PRODUCT_PARAMS.get(product, PRODUCT_PARAMS["banana"])
+        initial_dsl = float(params_p["initial_dsl_days"])
+
+    try:
+        quality_result = calculate_quality(
+            temperature=temp, humidity=hum,
+            storage_days=storage_days,
+            product=product,
+            ai_spoilage=spoilage,
+            initial_dsl=initial_dsl,
+        )
+        quality_data = quality_result_to_dict(quality_result, base_price=base_price)
+    except Exception as e:
+        logger.warning("AI inference [%s] quality calc error: %s", node_id, e)
+        quality_data = None
+
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    result = {
+        "spoilage":     round(spoilage, 2),
+        "ai_label":     ai_label,
+        "ai_color":     ai_color,
+        "quality_data": quality_data,
+        "storage_days": storage_days,
+        "timestamp":    ts,
+    }
+
+    # 更新快取
+    ai_cache[node_id] = result
+    logger.info("AI inference [%s] done: spoilage=%.1f%% label=%s", node_id, spoilage, ai_label)
+
+    # 自動記錄到資料庫（每次推理都記錄）
+    if quality_data:
+        try:
+            insert_prediction(node_id, {
+                "storage_days":     storage_days,
+                "temperature":      temp,
+                "humidity":         hum,
+                "ai_spoilage":      spoilage,
+                "quality_ai":       quality_data.get("quality_ai"),
+                "quality_formula":  quality_data["quality_formula"],
+                "quality_combined": quality_data["quality_score"],
+                "dsl_combined":     quality_data["dsl_days"],
+                "discount_pct":     quality_data["discount_pct"],
+                "base_price":       base_price,
+                "final_price":      quality_data["final_price"],
+                "freshness_label":  quality_data["freshness_label"],
+                "product":          product,
+            })
+        except Exception as e:
+            logger.debug("Auto-save prediction error: %s", e)
+
+    return result
+
+
+def auto_ai_inference_loop():
+    """背景執行緒：每 10 秒對所有節點執行 AI 推理"""
+    # 等待系統完全啟動（模型載入、DB 初始化）
+    time.sleep(15)
+    logger.info("Auto AI inference loop started")
+
+    while True:
+        try:
+            nodes = get_all_nodes()
+            for node in nodes:
+                node_id = node.get("node_id")
+                if node_id:
+                    run_ai_inference_for_node(node_id, node)
+        except Exception as e:
+            logger.warning("Auto AI inference loop error: %s", e)
+
+        time.sleep(AI_INFER_INTERVAL)
+
+
 # ─── FastAPI 應用程式 ─────────────────────────────────────────────────────────
-app = FastAPI(title="AIoT Smart Shelf API", version="4.0.0")
+app = FastAPI(title="AIoT Smart Shelf API", version="4.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -210,6 +352,11 @@ async def startup():
     t = threading.Thread(target=start_mqtt, daemon=True)
     t.start()
     logger.info("MQTT thread started")
+
+    # 啟動 AI 自動推理背景執行緒（每 10 秒）
+    ai_thread = threading.Thread(target=auto_ai_inference_loop, daemon=True)
+    ai_thread.start()
+    logger.info("Auto AI inference thread started (interval=10s)")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -638,30 +785,42 @@ async def display_data(node_id: str):
     humidity    = sensor.get("humidity")
     sensor_ts   = sensor.get("timestamp")
 
-    # 取得最新評估記錄
+    # 取得最新 AI 推理結果（自動推理快取）
+    ai_result = ai_cache.get(node_id)
+
+    # 取得最新評估記錄（用於備用）
     predictions = get_node_predictions(node_id, limit=1)
     latest = predictions[0] if predictions else None
 
-    # 若有感測器數據，即時計算品質（使用節點預設產品與初始 DSL）
+    # 品質數據優先使用 ai_cache（自動推理結果）
     quality_data = None
-    if temperature is not None and humidity is not None:
+    ai_spoilage_val = None
+    ai_label_val    = None
+    ai_color_val    = None
+    ai_infer_ts     = None
+
+    if ai_result:
+        # 自動推理快取有效
+        quality_data    = ai_result.get("quality_data")
+        ai_spoilage_val = ai_result.get("spoilage")
+        ai_label_val    = ai_result.get("ai_label")
+        ai_color_val    = ai_result.get("ai_color")
+        ai_infer_ts     = ai_result.get("timestamp")
+    elif temperature is not None and humidity is not None:
+        # 備用：若 AI 快取尚空（第一次啟動），用純公式計算
         try:
             product     = node.get("product_type", "banana")
             initial_dsl = node.get("initial_dsl", None)
             storage_days = latest.get("storage_days", 1) if latest else 1
             base_price   = node.get("base_price", 100.0)
-
             result = calculate_quality(
-                temperature=temperature,
-                humidity=humidity,
-                storage_days=storage_days,
-                product=product,
-                initial_dsl=initial_dsl,
-                ai_spoilage=latest.get("ai_spoilage") if latest else None,
+                temperature=temperature, humidity=humidity,
+                storage_days=storage_days, product=product,
+                initial_dsl=initial_dsl, ai_spoilage=None,
             )
             quality_data = quality_result_to_dict(result, base_price=base_price)
         except Exception as e:
-            logger.warning("Display quality calc error: %s", e)
+            logger.warning("Display quality fallback error: %s", e)
 
     # 取得最近感測器歷史（用於圖表，最近 20 筆）
     readings = get_node_readings(node_id, limit=20)
@@ -677,17 +836,24 @@ async def display_data(node_id: str):
             "camera_url":    node.get("camera_url") or CAMERA_URL,
         },
         "sensor": {
-            "temperature": temperature,
-            "humidity":    humidity,
-            "light_lux":   node.get("light_lux", 375),
+            "temperature":  temperature,
+            "humidity":     humidity,
+            "light_lux":    node.get("light_lux", 375),
             "air_velocity": node.get("air_velocity", 0.22),
-            "timestamp":   sensor_ts,
-            "online":      temperature is not None,
+            "timestamp":    sensor_ts,
+            "online":       temperature is not None,
         },
-        "quality": quality_data,
+        "ai": {
+            "spoilage":   ai_spoilage_val,
+            "label":      ai_label_val,
+            "color":      ai_color_val,
+            "inferred_at": ai_infer_ts,
+            "available":  ai_result is not None,
+        },
+        "quality":           quality_data,
         "latest_prediction": latest,
-        "readings_history": readings,
-        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "readings_history":  readings,
+        "updated_at":        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
 
