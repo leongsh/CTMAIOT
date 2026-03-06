@@ -38,6 +38,7 @@ import sqlite3
 from datetime import datetime
 from typing import Optional
 
+import requests
 import joblib
 import numpy as np
 import httpx
@@ -210,8 +211,7 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
     cam_url = node.get("camera_url") or CAMERA_URL
 
     try:
-        import requests as req_lib
-        resp = req_lib.get(cam_url, timeout=8)
+        resp = requests.get(cam_url, timeout=8)
         resp.raise_for_status()
         image = Image.open(io.BytesIO(resp.content)).convert("RGB")
     except Exception as e:
@@ -854,6 +854,26 @@ async def display_data(node_id: str):
         "latest_prediction": latest,
         "readings_history":  readings,
         "updated_at":        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+@app.get("/api/ai-status")
+async def ai_status():
+    """查看 AI 自動推理快取狀態（免登入，用於診斷）"""
+    result = {}
+    for nid, data in ai_cache.items():
+        result[nid] = {
+            "spoilage":    data.get("spoilage"),
+            "ai_label":    data.get("ai_label"),
+            "timestamp":   data.get("timestamp"),
+            "storage_days": data.get("storage_days"),
+        }
+    return {
+        "ai_cache_count": len(ai_cache),
+        "model_loaded":   model_ai is not None,
+        "scaler_loaded":  scaler is not None,
+        "interval_sec":   AI_INFER_INTERVAL,
+        "nodes":          result,
     }
 
 
