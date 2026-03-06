@@ -14,9 +14,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # 安裝 CPU-only torch（縮小映像）
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir fastapi uvicorn[standard] httpx paho-mqtt \
-       Pillow numpy scikit-learn joblib python-multipart
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# 安裝所有其他依賴（含 jose 認證模組）
+RUN pip install --no-cache-dir \
+    fastapi \
+    "uvicorn[standard]" \
+    httpx \
+    paho-mqtt \
+    Pillow \
+    numpy \
+    scikit-learn \
+    joblib \
+    python-multipart \
+    "python-jose[cryptography]" \
+    "passlib[bcrypt]" \
+    cryptography \
+    bcrypt
 
 # 複製程式碼與模型檔
 COPY . .
