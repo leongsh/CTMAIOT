@@ -617,6 +617,95 @@ async def predict(req: PredictRequest):
     }
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# 公開報價牌 API（免登入）
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.get("/api/display/{node_id}")
+async def display_data(node_id: str):
+    """
+    公開報價牌 API — 免登入
+    回傳：節點資訊、即時感測器數據、最新品質評估結果
+    """
+    # 取得節點資訊
+    node = get_node(node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail=f"節點 {node_id} 不存在")
+
+    # 取得即時感測器數據（MQTT 快取）
+    sensor = sensor_cache.get(node_id, {})
+    temperature = sensor.get("temperature")
+    humidity    = sensor.get("humidity")
+    sensor_ts   = sensor.get("timestamp")
+
+    # 取得最新評估記錄
+    predictions = get_node_predictions(node_id, limit=1)
+    latest = predictions[0] if predictions else None
+
+    # 若有感測器數據，即時計算品質（使用節點預設產品與初始 DSL）
+    quality_data = None
+    if temperature is not None and humidity is not None:
+        try:
+            product     = node.get("product_type", "banana")
+            initial_dsl = node.get("initial_dsl", None)
+            storage_days = latest.get("storage_days", 1) if latest else 1
+            base_price   = node.get("base_price", 100.0)
+
+            result = calculate_quality(
+                temperature=temperature,
+                humidity=humidity,
+                storage_days=storage_days,
+                product=product,
+                initial_dsl=initial_dsl,
+                ai_spoilage=latest.get("ai_spoilage") if latest else None,
+            )
+            quality_data = quality_result_to_dict(result, base_price=base_price)
+        except Exception as e:
+            logger.warning("Display quality calc error: %s", e)
+
+    # 取得最近感測器歷史（用於圖表，最近 20 筆）
+    readings = get_node_readings(node_id, limit=20)
+
+    return {
+        "node": {
+            "node_id":       node.get("node_id"),
+            "name":          node.get("name"),
+            "location_name": node.get("location_name"),
+            "product_type":  node.get("product_type", "banana"),
+            "base_price":    node.get("base_price", 100.0),
+            "initial_dsl":   node.get("initial_dsl"),
+            "camera_url":    node.get("camera_url") or CAMERA_URL,
+        },
+        "sensor": {
+            "temperature": temperature,
+            "humidity":    humidity,
+            "light_lux":   node.get("light_lux", 375),
+            "air_velocity": node.get("air_velocity", 0.22),
+            "timestamp":   sensor_ts,
+            "online":      temperature is not None,
+        },
+        "quality": quality_data,
+        "latest_prediction": latest,
+        "readings_history": readings,
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+@app.get("/api/display/{node_id}/sensor")
+async def display_sensor_only(node_id: str):
+    """輕量感測器快照 API（免登入，用於高頻輪詢）"""
+    sensor = sensor_cache.get(node_id, {})
+    node   = get_node(node_id)
+    return {
+        "temperature":  sensor.get("temperature"),
+        "humidity":     sensor.get("humidity"),
+        "light_lux":    node.get("light_lux", 375) if node else 375,
+        "air_velocity": node.get("air_velocity", 0.22) if node else 0.22,
+        "timestamp":    sensor.get("timestamp"),
+        "online":       sensor.get("temperature") is not None,
+    }
+
+
 # ─── 靜態網頁 ─────────────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -639,6 +728,12 @@ async def app_page():
 @app.get("/admin")
 async def admin_page():
     return FileResponse("static/admin.html")
+
+
+@app.get("/display/{node_id}")
+async def display_page(node_id: str):
+    """公開報價牌頁面（免登入）"""
+    return FileResponse("static/display.html")
 
 
 if __name__ == "__main__":
