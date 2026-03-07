@@ -681,11 +681,21 @@ async function fetchAndUpdate() {
       document.getElementById('ai-label').style.borderColor = color + '55';
       document.getElementById('ai-bar').style.width = sp.toFixed(1) + '%';
       document.getElementById('ai-bar').style.background = color;
-      document.getElementById('ai-infer-ts').textContent =
-        '最後推理：' + (ai.inferred_at || '').slice(11, 19);
+      // 來源標示
+      const sourceMap = {
+        'manual':         '\u624b\u52d5\u8a55\u4f30',
+        'manual_predict': '\u624b\u52d5\u5b8c\u6574\u63a8\u7406',
+        'auto':           '\u81ea\u52d5\u63a8\u7406',
+      };
+      const sourceLabel = sourceMap[ai.source] || '\u81ea\u52d5\u63a8\u7406';
+      const sourceColor = (ai.source === 'manual' || ai.source === 'manual_predict')
+        ? '#a78bfa' : '#38bdf8';
+      document.getElementById('ai-infer-ts').innerHTML =
+        '<span style="color:' + sourceColor + ';font-size:0.75rem;margin-right:6px;">[' + sourceLabel + ']</span>' +
+        '\u6700\u5f8c\u66f4\u65b0\uff1a' + (ai.inferred_at || '').slice(11, 19);
     } else {
       document.getElementById('ai-infer-ts').textContent =
-        ai.available === false ? '等待 AI 推理（每 10 秒自動執行）' : '等待感測器數據…';
+        ai.available === false ? '\u7b49\u5f85 AI \u63a8\u7406\uff08\u6bcf 10 \u79d2\u81ea\u52d5\u57f7\u884c\uff09' : '\u7b49\u5f85\u611f\u6e2c\u5668\u6578\u64da\u2026';
     }
 
     // 品質數據

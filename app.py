@@ -851,6 +851,41 @@ async def calc_quality(req: QualityRequest):
         except Exception as e:
             logger.warning("Save prediction failed: %s", e)
 
+    # ── 同步更新 ai_cache，讓電子報價牌即時反映最新評估結果 ──────────────────
+    # 手動評估的優先級高於自動推理（因為包含更完整的參數設定）
+    ai_spoilage_sync = req.ai_spoilage if req.ai_spoilage is not None else (
+        ai_cache.get(req.node_id, {}).get("spoilage")
+    )
+    freshness_label = data.get("freshness_label", "")
+    # 依新鮮度標籤決定顏色
+    if "非常新鮮" in freshness_label:
+        ai_color = "#22c55e"
+        ai_label = f"非常新鮮 🟢"
+    elif "良好新鮮" in freshness_label:
+        ai_color = "#84cc16"
+        ai_label = f"良好新鮮 🟡"
+    elif "輕微老化" in freshness_label:
+        ai_color = "#f59e0b"
+        ai_label = f"輕微老化 🟠"
+    elif "明顯老化" in freshness_label:
+        ai_color = "#ef4444"
+        ai_label = f"明顯老化 🔴"
+    else:
+        ai_color = "#ef4444"
+        ai_label = freshness_label
+
+    ai_cache[req.node_id] = {
+        "spoilage":     ai_spoilage_sync,
+        "ai_label":     ai_label,
+        "ai_color":     ai_color,
+        "timestamp":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "quality_data": data,
+        "storage_days": req.storage_days,
+        "source":       "manual",   # 標記來源為手動評估
+    }
+    logger.info("ai_cache updated from manual assessment: node=%s Q=%.1f discount=%s%%",
+                req.node_id, data.get("quality_score", 0), data.get("discount_pct", 0))
+
     return data
 
 
@@ -939,6 +974,19 @@ async def predict(req: PredictRequest):
             })
         except Exception as e:
             logger.warning("Save prediction failed: %s", e)
+
+    # ── 同步更新 ai_cache，讓電子報價牌即時反映最新完整推理結果 ─────────────
+    ai_cache[req.node_id] = {
+        "spoilage":     spoilage,
+        "ai_label":     ai_label,
+        "ai_color":     ai_color,
+        "timestamp":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "quality_data": quality_data,
+        "storage_days": req.storage_time,
+        "source":       "manual_predict",
+    }
+    logger.info("ai_cache updated from /api/predict: node=%s spoilage=%.1f Q=%.1f discount=%s%%",
+                req.node_id, spoilage, quality_data.get("quality_score", 0), quality_data.get("discount_pct", 0))
 
     return {
         "spoilage_level":   round(spoilage, 2),
@@ -1052,6 +1100,7 @@ async def display_data(node_id: str):
             "color":      ai_color_val,
             "inferred_at": ai_infer_ts,
             "available":  ai_result is not None,
+            "source":     ai_result.get("source", "auto") if ai_result else None,
         },
         "quality":           quality_data,
         "latest_prediction": latest,
