@@ -109,6 +109,22 @@ scaler = None
 # AI 推理結果快取：{node_id: {spoilage, label, color, timestamp, quality_data}}
 ai_cache: dict = {}
 
+# 模型版本管理
+MODEL_BACKUP_DIR = "./model_versions"
+model_registry: dict = {
+    "current": {
+        "model_path":  MODEL_PATH,
+        "scaler_path": SCALER_PATH,
+        "version":     "v1.0-original",
+        "uploaded_at": None,
+        "uploaded_by": "system",
+        "description": "原始訓練模型",
+        "inference_count": 0,
+    },
+    "history": [],  # 最多保留 5 個歷史版本
+}
+os.makedirs(MODEL_BACKUP_DIR, exist_ok=True)
+
 # ─── 圖像前處理 ──────────────────────────────────────────────────────────────
 infer_transform = transforms.Compose([
     transforms.Resize((IMG_HEIGHT, IMG_WIDTH)),
@@ -275,6 +291,7 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
 
     # 更新快取
     ai_cache[node_id] = result
+    model_registry["current"]["inference_count"] += 1
     logger.info("AI inference [%s] done: spoilage=%.1f%% label=%s", node_id, spoilage, ai_label)
 
     # 自動記錄到資料庫（每次推理都記錄）
@@ -523,6 +540,192 @@ async def node_predictions(node_id: str, limit: int = 50,
 @app.get("/api/admin/dashboard")
 async def admin_dashboard(admin: dict = Depends(require_admin)):
     return get_dashboard_stats()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Layer 3 — AI 模型熱更新 API
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _reload_model(model_path: str, scaler_path: str) -> tuple:
+    """即時重載 AI 模型與 scaler，回傳 (model, scaler)"""
+    new_model = HybridModel().to(DEVICE)
+    new_model.load_state_dict(torch.load(model_path, map_location=DEVICE, weights_only=True))
+    new_model.eval()
+    new_scaler = joblib.load(scaler_path)
+    return new_model, new_scaler
+
+
+@app.get("/api/model/status")
+async def model_status(admin: dict = Depends(require_admin)):
+    """查看目前 AI 模型版本與推理狀態"""
+    cur = model_registry["current"]
+    history = model_registry["history"]
+    return {
+        "current": {
+            "version":         cur["version"],
+            "uploaded_at":     cur["uploaded_at"],
+            "uploaded_by":     cur["uploaded_by"],
+            "description":     cur["description"],
+            "model_path":      cur["model_path"],
+            "scaler_path":     cur["scaler_path"],
+            "inference_count": cur["inference_count"],
+            "model_loaded":    model_ai is not None,
+            "scaler_loaded":   scaler is not None,
+        },
+        "history_count": len(history),
+        "history": [
+            {
+                "version":     h["version"],
+                "uploaded_at": h["uploaded_at"],
+                "uploaded_by": h["uploaded_by"],
+                "description": h["description"],
+            }
+            for h in history
+        ],
+        "can_rollback": len(history) > 0,
+    }
+
+
+@app.post("/api/model/upload")
+async def upload_model(
+    admin: dict = Depends(require_admin),
+    model_file: Optional[bytes] = None,
+    scaler_file: Optional[bytes] = None,
+):
+    """
+    上傳新模型（支援僅上傳 .pth 或僅上傳 .pkl 或兩者同時上傳）
+    上傳後系統即時重載模型，不需重新部署
+    """
+    from fastapi import UploadFile, File, Form
+    raise HTTPException(status_code=400, detail="請使用 multipart/form-data 上傳")
+
+
+from fastapi import UploadFile, File, Form
+
+
+@app.post("/api/model/upload-form")
+async def upload_model_form(
+    admin: dict = Depends(require_admin),
+    version: str = Form(default=""),
+    description: str = Form(default=""),
+    model_file: Optional[UploadFile] = File(default=None),
+    scaler_file: Optional[UploadFile] = File(default=None),
+):
+    """
+    上傳新 AI 模型（multipart/form-data）
+    - model_file: .pth 模型檔案（可選）
+    - scaler_file: .pkl scaler 檔案（可選）
+    - version: 版本號（如 v2.0）
+    - description: 版本說明
+    """
+    global model_ai, scaler, model_registry
+
+    if model_file is None and scaler_file is None:
+        raise HTTPException(status_code=400, detail="請至少上傳 model_file (.pth) 或 scaler_file (.pkl) 其中一個")
+
+    ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    new_version = version.strip() or f"v-{ts_str}"
+    new_model_path  = model_registry["current"]["model_path"]
+    new_scaler_path = model_registry["current"]["scaler_path"]
+
+    # 備份目前版本到 history
+    old_entry = dict(model_registry["current"])
+    model_registry["history"].insert(0, old_entry)
+    if len(model_registry["history"]) > 5:
+        model_registry["history"] = model_registry["history"][:5]
+
+    # 儲存新模型檔案
+    if model_file is not None:
+        content = await model_file.read()
+        if len(content) < 1000:
+            raise HTTPException(status_code=400, detail="模型檔案過小，請確認檔案格式正確 (.pth)")
+        new_model_path = os.path.join(MODEL_BACKUP_DIR, f"model_{ts_str}.pth")
+        with open(new_model_path, "wb") as f:
+            f.write(content)
+        logger.info("New model file saved: %s (%d bytes)", new_model_path, len(content))
+
+    if scaler_file is not None:
+        content = await scaler_file.read()
+        if len(content) < 100:
+            raise HTTPException(status_code=400, detail="Scaler 檔案過小，請確認檔案格式正確 (.pkl)")
+        new_scaler_path = os.path.join(MODEL_BACKUP_DIR, f"scaler_{ts_str}.pkl")
+        with open(new_scaler_path, "wb") as f:
+            f.write(content)
+        logger.info("New scaler file saved: %s (%d bytes)", new_scaler_path, len(content))
+
+    # 即時重載模型
+    try:
+        new_model, new_sc = _reload_model(new_model_path, new_scaler_path)
+        model_ai = new_model
+        scaler   = new_sc
+        logger.info("Model hot-reloaded successfully: %s", new_version)
+    except Exception as e:
+        # 重載失敗：回滚到舊版本
+        model_registry["history"].pop(0)
+        logger.error("Model reload failed: %s", e)
+        raise HTTPException(status_code=500, detail=f"模型重載失敗：{e}")
+
+    # 更新版本記錄
+    model_registry["current"] = {
+        "model_path":      new_model_path,
+        "scaler_path":     new_scaler_path,
+        "version":         new_version,
+        "uploaded_at":     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "uploaded_by":     admin["username"],
+        "description":     description or f"上傳於 {ts_str}",
+        "inference_count": 0,
+    }
+
+    # 清空 AI 快取，下一輪推理將使用新模型
+    ai_cache.clear()
+
+    return {
+        "message":     f"模型已成功更新並重載！版本：{new_version}",
+        "version":     new_version,
+        "uploaded_at": model_registry["current"]["uploaded_at"],
+        "model_file":  model_file.filename if model_file else "未更新",
+        "scaler_file": scaler_file.filename if scaler_file else "未更新",
+    }
+
+
+@app.post("/api/model/rollback")
+async def rollback_model(admin: dict = Depends(require_admin)):
+    """回滚到上一個模型版本"""
+    global model_ai, scaler, model_registry
+
+    if not model_registry["history"]:
+        raise HTTPException(status_code=400, detail="沒有可回滚的歷史版本")
+
+    # 取出上一個版本
+    prev = model_registry["history"].pop(0)
+
+    # 尝試重載
+    try:
+        new_model, new_sc = _reload_model(prev["model_path"], prev["scaler_path"])
+        model_ai = new_model
+        scaler   = new_sc
+        logger.info("Model rolled back to: %s", prev["version"])
+    except Exception as e:
+        # 回滚失敗：把舊版本放回
+        model_registry["history"].insert(0, prev)
+        raise HTTPException(status_code=500, detail=f"回滚失敗：{e}")
+
+    # 將目前版本備份到 history
+    cur = dict(model_registry["current"])
+    model_registry["history"].insert(0, cur)
+    if len(model_registry["history"]) > 5:
+        model_registry["history"] = model_registry["history"][:5]
+
+    # 更新版本記錄
+    model_registry["current"] = prev
+    ai_cache.clear()
+
+    return {
+        "message":     f"已回滚到版本：{prev['version']}",
+        "version":     prev["version"],
+        "uploaded_at": prev["uploaded_at"],
+        "description": prev["description"],
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -129,12 +129,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
     </div>
   </div>
 
-  <!-- 頁籤 -->
+  <!-- 頁簽 -->
   <div class="admin-tabs">
     <button class="admin-tab active" onclick="switchAdminTab('dashboard')">儀表板</button>
     <button class="admin-tab" onclick="switchAdminTab('nodes')">節點管理</button>
     <button class="admin-tab" onclick="switchAdminTab('users')">用戶管理</button>
     <button class="admin-tab" onclick="switchAdminTab('records')">數據記錄</button>
+    <button class="admin-tab" onclick="switchAdminTab('model')">🤖 AI 模型管理</button>
   </div>
 
   <!-- 儀表板 -->
@@ -211,6 +212,99 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
       </table>
     </div>
   </div>
+
+  <!-- AI 模型管理 -->
+  <div class="admin-pane" id="pane-model">
+    <!-- 目前版本狀態 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🤖 目前 AI 模型版本</div>
+        <button class="btn-primary" onclick="loadModelStatus()">🔄 刷新狀態</button>
+      </div>
+      <div id="model-status-card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+        <div class="stat-card" style="--accent:#8b5cf6">
+          <div class="stat-icon">🏷️</div>
+          <div class="stat-label">當前版本</div>
+          <div class="stat-val" id="m-version" style="font-size:1.2rem">--</div>
+        </div>
+        <div class="stat-card" style="--accent:#22c55e">
+          <div class="stat-icon">✅</div>
+          <div class="stat-label">模型狀態</div>
+          <div class="stat-val" id="m-loaded" style="font-size:1.2rem">--</div>
+        </div>
+        <div class="stat-card" style="--accent:#3b82f6">
+          <div class="stat-icon">🔢</div>
+          <div class="stat-label">推理次數</div>
+          <div class="stat-val" id="m-infer-count">--</div>
+        </div>
+        <div class="stat-card" style="--accent:#f97316">
+          <div class="stat-icon">📅</div>
+          <div class="stat-label">上傳時間</div>
+          <div class="stat-val" id="m-uploaded-at" style="font-size:.9rem">--</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:#0f172a;border-radius:8px;font-size:.82rem;color:#94a3b8">
+        <span style="color:#64748b">版本說明：</span>
+        <span id="m-description">--</span>
+        &nbsp;&nbsp;
+        <span style="color:#64748b">上傳者：</span>
+        <span id="m-uploaded-by">--</span>
+      </div>
+    </div>
+
+    <!-- 上傳新模型 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">⬆️ 上傳新模型（熱更新）</div>
+      </div>
+      <div style="background:#0f172a;border:1px dashed #334155;border-radius:10px;padding:20px">
+        <div class="form-row" style="margin-bottom:14px">
+          <div class="form-group">
+            <label>版本號（如 v2.0）</label>
+            <input type="text" id="upload-version" placeholder="v2.0" style="background:#1e293b;border:1px solid #334155;border-radius:8px;color:#f1f5f9;padding:9px 12px;width:100%;font-size:.88rem"/>
+          </div>
+          <div class="form-group">
+            <label>版本說明</label>
+            <input type="text" id="upload-desc" placeholder="改進訓練數據集後重新訓練" style="background:#1e293b;border:1px solid #334155;border-radius:8px;color:#f1f5f9;padding:9px 12px;width:100%;font-size:.88rem"/>
+          </div>
+        </div>
+        <div class="form-row" style="margin-bottom:18px">
+          <div class="form-group">
+            <label>🧠 AI 模型檔案 (.pth)（可選）</label>
+            <input type="file" id="upload-model-file" accept=".pth" style="background:#1e293b;border:1px solid #334155;border-radius:8px;color:#94a3b8;padding:9px 12px;width:100%;font-size:.82rem"/>
+            <div style="font-size:.72rem;color:#475569;margin-top:4px">僅更新模型權重，不更新 scaler 時可不上傳</div>
+          </div>
+          <div class="form-group">
+            <label>📀 Scaler 檔案 (.pkl)（可選）</label>
+            <input type="file" id="upload-scaler-file" accept=".pkl" style="background:#1e293b;border:1px solid #334155;border-radius:8px;color:#94a3b8;padding:9px 12px;width:100%;font-size:.82rem"/>
+            <div style="font-size:.72rem;color:#475569;margin-top:4px">更新訓練數據正規化器時需一並上傳</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn-primary" onclick="uploadModel()" style="padding:10px 24px;font-size:.88rem">⬆️ 上傳並即時重載</button>
+          <div id="upload-status" style="font-size:.82rem;color:#64748b"></div>
+        </div>
+        <div style="margin-top:12px;padding:10px;background:#1e293b;border-radius:6px;font-size:.78rem;color:#64748b;line-height:1.6">
+          ⚠️ <strong style="color:#f97316">熱更新說明：</strong>
+          上傳後系統即時重載新模型，<strong style="color:#22c55e">不需重新部署</strong>。
+          所有節點的電子報價牌與應用層將在下一輪推理（10秒）自動使用新模型。
+          支援僅上傳 .pth、僅上傳 .pkl、或兩者同時上傳。
+        </div>
+      </div>
+    </div>
+
+    <!-- 版本歷史與回滚 -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">📜 版本歷史（最多保留 5 個）</div>
+        <button id="btn-rollback" class="btn-danger" onclick="rollbackModel()" disabled>↩ 回滚到上一版本</button>
+      </div>
+      <div id="model-history-list">
+        <div class="empty-state"><div class="icon">📜</div><div>尚無歷史版本</div></div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- 節點模態框 -->
@@ -573,18 +667,121 @@ async function loadRecords() {
   } catch(e) { console.warn(e); tbody.innerHTML = '<tr><td colspan="9" class="empty-state">載入失敗</td></tr>'; }
 }
 
-// ── 工具 ──────────────────────────────────────────────────────────────────────
+// ── 工具 ──────────────────────────────────────────────────────────────────────────────
 function switchAdminTab(tab) {
+  const tabs = ['dashboard','nodes','users','records','model'];
   document.querySelectorAll('.admin-tab').forEach((b,i) => {
-    const tabs = ['dashboard','nodes','users','records'];
     b.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.admin-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('pane-' + tab).classList.add('active');
   if (tab === 'records') loadRecords();
+  if (tab === 'model') loadModelStatus();
 }
 
-function closeModal(id) {
+// ── AI 模型管理 ───────────────────────────────────────────────────────────────────────────
+async function loadModelStatus() {
+  try {
+    const r = await fetch('/api/model/status', {headers: authHeader()});
+    if (!r.ok) { console.warn('Model status failed'); return; }
+    const d = await r.json();
+    const cur = d.current;
+
+    document.getElementById('m-version').textContent     = cur.version || '--';
+    document.getElementById('m-loaded').textContent      = (cur.model_loaded && cur.scaler_loaded) ? '✅ 已載入' : '❌ 未載入';
+    document.getElementById('m-infer-count').textContent = cur.inference_count ?? '--';
+    document.getElementById('m-uploaded-at').textContent = cur.uploaded_at || '系統原始';
+    document.getElementById('m-description').textContent = cur.description || '--';
+    document.getElementById('m-uploaded-by').textContent = cur.uploaded_by || '--';
+
+    // 更新回滚按鈕狀態
+    const rollbackBtn = document.getElementById('btn-rollback');
+    rollbackBtn.disabled = !d.can_rollback;
+    rollbackBtn.textContent = d.can_rollback
+      ? `↩ 回滚到上一版本 (${d.history[0]?.version || '--'})`
+      : '↩ 無可回滚版本';
+
+    // 歷史版本列表
+    const histEl = document.getElementById('model-history-list');
+    if (!d.history || d.history.length === 0) {
+      histEl.innerHTML = '<div class="empty-state"><div class="icon">📜</div><div>尚無歷史版本</div></div>';
+    } else {
+      histEl.innerHTML = `
+        <table class="data-table">
+          <thead><tr><th>版本號</th><th>上傳時間</th><th>上傳者</th><th>版本說明</th></tr></thead>
+          <tbody>
+            ${d.history.map((h,i) => `
+              <tr>
+                <td style="font-weight:700;color:${i===0?'#f97316':'#94a3b8'}">${h.version}${i===0?' ← 可回滚':''}</td>
+                <td style="color:#64748b;font-size:.75rem">${h.uploaded_at || '系統原始'}</td>
+                <td style="color:#94a3b8">${h.uploaded_by || '--'}</td>
+                <td style="color:#64748b">${h.description || '--'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    }
+  } catch(e) { console.warn('loadModelStatus error:', e); }
+}
+
+async function uploadModel() {
+  const modelFile  = document.getElementById('upload-model-file').files[0];
+  const scalerFile = document.getElementById('upload-scaler-file').files[0];
+  const version    = document.getElementById('upload-version').value.trim();
+  const desc       = document.getElementById('upload-desc').value.trim();
+  const statusEl   = document.getElementById('upload-status');
+
+  if (!modelFile && !scalerFile) {
+    alert('請至少選擇一個檔案（.pth 或 .pkl）');
+    return;
+  }
+
+  statusEl.textContent = '⏳ 上傳中…';
+  statusEl.style.color = '#f97316';
+
+  const formData = new FormData();
+  if (version)    formData.append('version', version);
+  if (desc)       formData.append('description', desc);
+  if (modelFile)  formData.append('model_file', modelFile);
+  if (scalerFile) formData.append('scaler_file', scalerFile);
+
+  try {
+    const r = await fetch('/api/model/upload-form', {
+      method: 'POST',
+      headers: {'Authorization': 'Bearer ' + token},  // 不設 Content-Type，讓瀏覽器自動設定 multipart
+      body: formData,
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || '上傳失敗');
+
+    statusEl.textContent = '✅ ' + data.message;
+    statusEl.style.color = '#22c55e';
+
+    // 清空檔案選擇
+    document.getElementById('upload-model-file').value  = '';
+    document.getElementById('upload-scaler-file').value = '';
+    document.getElementById('upload-version').value     = '';
+    document.getElementById('upload-desc').value        = '';
+
+    // 刷新版本狀態
+    setTimeout(() => loadModelStatus(), 1000);
+  } catch(e) {
+    statusEl.textContent = '❌ ' + e.message;
+    statusEl.style.color = '#ef4444';
+  }
+}
+
+async function rollbackModel() {
+  if (!confirm('確定要回滚到上一個模型版本？回滚後系統即時使用舊模型。')) return;
+  try {
+    const r = await fetch('/api/model/rollback', {method:'POST', headers: authHeader()});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || '回滚失敗');
+    alert('✅ ' + data.message);
+    loadModelStatus();
+  } catch(e) { alert('❌ ' + e.message); }
+}ction closeModal(id) {
   document.getElementById(id).classList.remove('open');
 }
 
