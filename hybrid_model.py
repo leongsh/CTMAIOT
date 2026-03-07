@@ -36,7 +36,7 @@ class HybridModel(nn.Module):
         )
 
         # --- LSTM 分支 (處理感測器數值) ---
-        self.lstm    = nn.LSTM(input_size=3, hidden_size=64, batch_first=True)
+        self.lstm    = nn.LSTM(input_size=2, hidden_size=64, batch_first=True)
         self.lstm_fc  = nn.Linear(64, 32)
         self.lstm_relu = nn.ReLU()
 
