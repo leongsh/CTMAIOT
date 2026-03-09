@@ -222,9 +222,14 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
     sensor = sensor_cache.get(node_id, {})
     temp = sensor.get("temperature")
     hum  = sensor.get("humidity")
+    # 若無即時感測器數據，使用預設環境值（室溫 25°C、濕度 65%）
+    # 確保所有節點都能顯示基本品質評估
+    using_default_sensor = False
     if temp is None or hum is None:
-        logger.debug("AI inference skip [%s]: no sensor data", node_id)
-        return None
+        temp = 25.0
+        hum  = 65.0
+        using_default_sensor = True
+        logger.debug("AI inference [%s]: using default sensor values (25°C, 65%%)", node_id)
 
     # 取得相機 URL
     cam_url = node.get("camera_url") or CAMERA_URL
@@ -262,8 +267,9 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
     else:               ai_label, ai_color = "嚴重腐敗 ⚫", "#7f1d1d"
 
     # 計算複合品質評分
-    product     = node.get("product_type", "banana")
-    initial_dsl = node.get("initial_dsl")
+    # 注意：資料庫欄位名稱是 product（不是 product_type）
+    product     = node.get("product") or node.get("product_type", "banana")
+    initial_dsl = node.get("initial_dsl") or node.get("initial_dsl_days")
     base_price  = node.get("base_price", 100.0)
     if initial_dsl is None:
         params_p = PRODUCT_PARAMS.get(product, PRODUCT_PARAMS["banana"])
@@ -284,12 +290,13 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
 
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     result = {
-        "spoilage":     round(spoilage, 2),
-        "ai_label":     ai_label,
-        "ai_color":     ai_color,
-        "quality_data": quality_data,
-        "storage_days": storage_days,
-        "timestamp":    ts,
+        "spoilage":              round(spoilage, 2),
+        "ai_label":              ai_label,
+        "ai_color":              ai_color,
+        "quality_data":          quality_data,
+        "storage_days":          storage_days,
+        "timestamp":             ts,
+        "using_default_sensor":  using_default_sensor,
     }
 
     # 更新快取
