@@ -34,7 +34,8 @@ import threading
 import logging
 import os
 import hashlib
-import sqlite3
+import psycopg2
+import psycopg2.extras
 from datetime import datetime
 from typing import Optional
 
@@ -109,8 +110,8 @@ scaler = None
 # AI 推理結果快取：{node_id: {spoilage, label, color, timestamp, quality_data}}
 ai_cache: dict = {}
 
-# ai_cache 持久化路徑（與 SQLite DB 同目錄）
-AI_CACHE_DB = os.environ.get("DB_PATH", "./data/ctmaiot.db").replace("ctmaiot.db", "ai_cache.db")
+# PostgreSQL 連線字串（與 database.py 共用）
+from database import DATABASE_URL
 
 # 模型版本管理
 MODEL_BACKUP_DIR = "./model_versions"
@@ -354,33 +355,40 @@ def auto_ai_inference_loop():
 app = FastAPI(title="AIoT Smart Shelf API", version="4.1.0")
 
 
-# ── ai_cache 持久化函數 ───────────────────────────────────────────────────────────────────────────────
+# ── ai_cache 持久化函數（PostgreSQL）────────────────────────────────────────────────────────────────────
 def _init_ai_cache_db():
-    """初始化 ai_cache 持久化資料庫"""
+    """初始化 ai_cache 持久化資料表（PostgreSQL）"""
     import json
-    os.makedirs(os.path.dirname(AI_CACHE_DB) if os.path.dirname(AI_CACHE_DB) else '.', exist_ok=True)
-    conn = sqlite3.connect(AI_CACHE_DB, check_same_thread=False)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS ai_cache (
-            node_id TEXT PRIMARY KEY,
-            data    TEXT NOT NULL,
-            updated_at TEXT NOT NULL
-        )
-    """)
-    conn.commit()
-    conn.close()
-    logger.info("ai_cache DB initialized: %s", AI_CACHE_DB)
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS ai_cache (
+                node_id    TEXT PRIMARY KEY,
+                data       TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT NOW()
+            )
+        """)
+        conn.commit()
+        conn.close()
+        logger.info("ai_cache table initialized in PostgreSQL")
+    except Exception as e:
+        logger.warning("_init_ai_cache_db error: %s", e)
 
 
 def save_ai_cache_to_db(node_id: str, result: dict):
-    """\u5c07單一節點的 ai_cache 寫入持久化 DB"""
+    """將單一節點的 ai_cache 寫入持久化 PostgreSQL"""
     import json
     try:
-        conn = sqlite3.connect(AI_CACHE_DB, check_same_thread=False)
-        conn.execute(
-            "INSERT OR REPLACE INTO ai_cache (node_id, data, updated_at) VALUES (?, ?, ?)",
-            (node_id, json.dumps(result, ensure_ascii=False), datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-        )
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO ai_cache (node_id, data, updated_at)
+            VALUES (%s, %s, NOW())
+            ON CONFLICT (node_id) DO UPDATE SET
+                data = EXCLUDED.data,
+                updated_at = NOW()
+        """, (node_id, json.dumps(result, ensure_ascii=False)))
         conn.commit()
         conn.close()
     except Exception as e:
@@ -388,21 +396,21 @@ def save_ai_cache_to_db(node_id: str, result: dict):
 
 
 def load_ai_cache_from_db():
-    """\u5f9e持久化 DB \u8f09入 ai_cache"""
+    """從 PostgreSQL 載入 ai_cache"""
     import json
     global ai_cache
     try:
-        if not os.path.exists(AI_CACHE_DB):
-            return
-        conn = sqlite3.connect(AI_CACHE_DB, check_same_thread=False)
-        rows = conn.execute("SELECT node_id, data FROM ai_cache").fetchall()
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        cur.execute("SELECT node_id, data FROM ai_cache")
+        rows = cur.fetchall()
         conn.close()
         for row in rows:
             try:
                 ai_cache[row[0]] = json.loads(row[1])
             except Exception:
                 pass
-        logger.info("Loaded %d ai_cache entries from DB", len(rows))
+        logger.info("Loaded %d ai_cache entries from PostgreSQL", len(rows))
     except Exception as e:
         logger.warning("load_ai_cache_from_db error: %s", e)
 
@@ -421,10 +429,10 @@ async def startup():
     init_db()
     logger.info("Database initialized")
 
-    # 初始化 ai_cache 持久化 DB 並載入上次的推理結果
+    # 初始化 ai_cache 持久化表並載入上次的推理結果
     _init_ai_cache_db()
     load_ai_cache_from_db()
-    logger.info("ai_cache loaded from persistent DB: %d entries", len(ai_cache))
+    logger.info("ai_cache loaded from PostgreSQL: %d entries", len(ai_cache))
 
     # 載入 AI 模型
     try:
@@ -473,7 +481,8 @@ async def login(req: LoginRequest):
         )
     # 更新最後登入時間
     conn = get_db()
-    conn.execute("UPDATE users SET last_login=datetime('now') WHERE username=?", (req.username,))
+    cur = conn.cursor()
+    cur.execute("UPDATE users SET last_login=NOW() WHERE username=%s", (req.username,))
     conn.commit()
     conn.close()
 
@@ -502,9 +511,9 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 @app.get("/api/auth/users")
 async def list_users(admin: dict = Depends(require_admin)):
     conn = get_db()
-    rows = conn.execute(
-        "SELECT id, username, role, display_name, created_at, last_login FROM users ORDER BY id"
-    ).fetchall()
+    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT id, username, role, display_name, created_at, last_login FROM users ORDER BY id")
+    rows = cur.fetchall()
     conn.close()
     return [dict(r) for r in rows]
 
@@ -515,13 +524,15 @@ async def create_user(req: CreateUserRequest, admin: dict = Depends(require_admi
     if req.role not in ("admin", "user"):
         raise HTTPException(status_code=400, detail="角色必須為 admin 或 user")
     conn = get_db()
+    cur = conn.cursor()
     try:
-        conn.execute(
-            "INSERT INTO users (username, password, role, display_name) VALUES (?,?,?,?)",
+        cur.execute(
+            "INSERT INTO users (username, password, role, display_name) VALUES (%s, %s, %s, %s)",
             (req.username, _hash_password(req.password), req.role, req.display_name)
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
         raise HTTPException(status_code=400, detail="用戶名稱已存在")
     finally:
         conn.close()
@@ -531,7 +542,8 @@ async def create_user(req: CreateUserRequest, admin: dict = Depends(require_admi
 @app.delete("/api/auth/users/{user_id}")
 async def delete_user(user_id: int, admin: dict = Depends(require_admin)):
     conn = get_db()
-    conn.execute("DELETE FROM users WHERE id=? AND username != 'admin'", (user_id,))
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE id=%s AND username != 'admin'", (user_id,))
     conn.commit()
     conn.close()
     return {"message": "用戶已刪除"}
@@ -584,10 +596,8 @@ async def update_node(node_id: str, req: NodeRequest, admin: dict = Depends(requ
 
 @app.delete("/api/nodes/{node_id}")
 async def delete_node(node_id: str, admin: dict = Depends(require_admin)):
-    conn = get_db()
-    conn.execute("DELETE FROM nodes WHERE node_id=?", (node_id,))
-    conn.commit()
-    conn.close()
+    from database import delete_node as db_delete_node
+    db_delete_node(node_id)
     sensor_cache.pop(node_id, None)
     return {"message": f"節點 {node_id} 已刪除"}
 
