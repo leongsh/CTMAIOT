@@ -31,7 +31,8 @@ RUN pip install --no-cache-dir \
     "python-jose[cryptography]" \
     "passlib[bcrypt]" \
     cryptography \
-    bcrypt
+    bcrypt \
+    psycopg2-binary
 
 # 複製程式碼與模型檔
 COPY . .
