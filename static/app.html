@@ -983,9 +983,13 @@ function selectNode(nodeId) {
   }
 }
 
-function onAssessNodeChange() {
+async function onAssessNodeChange() {
   const nodeId = document.getElementById('assess-node-select').value;
-  if (nodeId) selectNode(nodeId);
+  if (nodeId) {
+    // 先重新載入最新節點數據（確保 initial_dsl 和 storage_date 是最新已儲存值）
+    await loadNodes();
+    selectNode(nodeId);
+  }
 }
 
 function onProductChange() {
