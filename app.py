@@ -971,7 +971,7 @@ class QualityRequest(BaseModel):
     humidity: Optional[float] = None
     ai_spoilage: Optional[float] = None
     initial_dsl: Optional[float] = None
-    node_id: str = "NODE_ISM_001"
+    node_id: str = "A01"
     save_record: bool = True
 
 
@@ -1068,7 +1068,7 @@ class PredictRequest(BaseModel):
     temperature: Optional[float] = None
     humidity: Optional[float] = None
     initial_dsl: Optional[float] = None
-    node_id: str = "NODE_ISM_001"
+    node_id: str = "A01"
     save_record: bool = True
 
 
