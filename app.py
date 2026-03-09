@@ -294,8 +294,9 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
         resp.raise_for_status()
         image = Image.open(io.BytesIO(resp.content)).convert("RGB")
     except Exception as e:
-        logger.warning("AI inference [%s] camera fetch failed: %s", node_id, e)
-        return None
+        logger.warning("AI inference [%s] camera fetch failed: %s — using blank image fallback", node_id, e)
+        # 相機失敗時使用空白圖片繼續推理（不中斷評估）
+        image = Image.new("RGB", (224, 224), color=(128, 128, 128))
 
     try:
         img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
@@ -303,8 +304,8 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
         model_hum     = hum / 100.0 if hum > 1.0 else hum
         # 優先從節點設定讀取已儲存天數，其次從 ai_cache，預設 1.0
         storage_days  = float(node.get("days_stored") or ai_cache.get(node_id, {}).get("storage_days") or 1.0)
-        # storage_hours = storage_days * 24.0 # No longer used in model
-        raw_sensor    = np.array([[temp, model_hum]], dtype=np.float32)
+        storage_hours = storage_days * 24.0
+        raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
         scaled_sensor = scaler.transform(raw_sensor)
         sensor_tensor = torch.tensor(scaled_sensor, dtype=torch.float32).to(DEVICE)
 
@@ -1146,7 +1147,9 @@ async def predict(req: PredictRequest):
             resp.raise_for_status()
         image = Image.open(io.BytesIO(resp.content)).convert("RGB")
     except Exception as e:
-        raise HTTPException(status_code=502, detail="Camera fetch failed: {}".format(e))
+        logger.warning("/api/predict [%s] camera fetch failed: %s — using blank image fallback", req.node_id, e)
+        # 相機失敗時使用空白圖片繼續推理（不中斷評估）
+        image = Image.new("RGB", (224, 224), color=(128, 128, 128))
 
     img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
 
