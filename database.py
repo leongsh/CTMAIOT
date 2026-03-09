@@ -143,6 +143,7 @@ def init_db():
                 base_price   REAL    DEFAULT 100.0,
                 camera_url   TEXT    DEFAULT '',
                 mqtt_topic   TEXT    DEFAULT '',
+                blynk_token  TEXT    DEFAULT '',
                 status       TEXT    DEFAULT 'active',
                 created_at   TIMESTAMP DEFAULT NOW(),
                 updated_at   TIMESTAMP DEFAULT NOW()
@@ -221,6 +222,16 @@ def init_db():
             "active"
         ))
 
+        # ── 欄位遷移：對現有資料庫動態新增欄位 ────────────────────────────────────────────────────────────
+        for col, col_type in [
+            ('days_stored',  'REAL DEFAULT 1.0'),
+            ('blynk_token',  "TEXT DEFAULT ''"),
+        ]:
+            try:
+                cur.execute(f"ALTER TABLE nodes ADD COLUMN IF NOT EXISTS {col} {col_type}")
+            except Exception:
+                pass  # 欄位已存在則忽略
+
     logger.info("Database initialized (PostgreSQL / Supabase)")
     print("[DB] Initialized: PostgreSQL (Supabase) with connection pool")
 
@@ -265,10 +276,10 @@ def upsert_node(data: dict):
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO nodes (node_id, name, location_name, lat, lng, floor, product,
-                               initial_dsl, days_stored, base_price, camera_url, mqtt_topic, status)
+                               initial_dsl, days_stored, base_price, camera_url, mqtt_topic, blynk_token, status)
             VALUES (%(node_id)s, %(name)s, %(location_name)s, %(lat)s, %(lng)s, %(floor)s,
                     %(product)s, %(initial_dsl)s, %(days_stored)s, %(base_price)s, %(camera_url)s,
-                    %(mqtt_topic)s, %(status)s)
+                    %(mqtt_topic)s, %(blynk_token)s, %(status)s)
             ON CONFLICT (node_id) DO UPDATE SET
                 name=EXCLUDED.name,
                 location_name=EXCLUDED.location_name,
@@ -281,6 +292,7 @@ def upsert_node(data: dict):
                 base_price=EXCLUDED.base_price,
                 camera_url=EXCLUDED.camera_url,
                 mqtt_topic=EXCLUDED.mqtt_topic,
+                blynk_token=EXCLUDED.blynk_token,
                 status=EXCLUDED.status,
                 updated_at=NOW()
         """, data)

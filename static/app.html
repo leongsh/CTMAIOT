@@ -59,6 +59,49 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .btn-node-edit:hover{background:var(--blue);color:#fff}
 .btn-node-assess{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
 .btn-node-assess:hover{background:var(--green);color:#fff}
+.btn-node-ctrl{background:rgba(249,115,22,.15);color:var(--orange);border:1px solid rgba(249,115,22,.3)}
+.btn-node-ctrl:hover{background:var(--orange);color:#fff}
+/* ── 遠端控制面板 ── */
+.ctrl-panel-header{font-size:.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.ctrl-panel-header::before{content:'';display:inline-block;width:3px;height:12px;background:var(--orange);border-radius:2px}
+.ctrl-node-info{background:#0f172a;border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:.82rem}
+.ctrl-node-name{font-weight:700;color:#f1f5f9;margin-bottom:2px}
+.ctrl-node-token{font-size:.68rem;color:#475569;font-family:monospace}
+.ctrl-axis-section{margin-bottom:16px}
+.ctrl-axis-label{font-size:.72rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.ctrl-axis-label span.axis-dot{display:inline-block;width:8px;height:8px;border-radius:50%}
+.ctrl-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ctrl-btn{
+  padding:14px 8px;
+  border-radius:10px;
+  border:none;
+  font-size:.88rem;
+  font-weight:800;
+  color:#fff;
+  cursor:pointer;
+  transition:transform .1s,opacity .15s,box-shadow .15s;
+  touch-action:manipulation;
+  user-select:none;
+  -webkit-user-select:none;
+  letter-spacing:.5px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+}
+.ctrl-btn:active,.ctrl-btn.pressing{transform:scale(.94);opacity:.8;box-shadow:0 0 0 3px rgba(255,255,255,.2)}
+.ctrl-btn-y{background:linear-gradient(135deg,#166534,#15803d)}
+.ctrl-btn-y.pressing{background:linear-gradient(135deg,#22c55e,#16a34a);box-shadow:0 0 12px rgba(34,197,94,.5)}
+.ctrl-btn-x{background:linear-gradient(135deg,#1e3a8a,#1d4ed8)}
+.ctrl-btn-x.pressing{background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 0 12px rgba(59,130,246,.5)}
+.ctrl-btn-z{background:linear-gradient(135deg,#7c2d12,#c2410c)}
+.ctrl-btn-z.pressing{background:linear-gradient(135deg,#f97316,#ea580c);box-shadow:0 0 12px rgba(249,115,22,.5)}
+.ctrl-btn-icon{font-size:1.3rem;line-height:1}
+.ctrl-status-bar{background:#0f172a;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#475569;margin-top:12px;font-family:monospace;min-height:32px;display:flex;align-items:center;gap:6px}
+.ctrl-status-dot{width:6px;height:6px;border-radius:50%;background:#475569;flex-shrink:0}
+.ctrl-status-dot.active{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6)}
+.ctrl-status-dot.error{background:#ef4444}
+.ctrl-region-info{font-size:.65rem;color:#334155;text-align:center;margin-top:8px}
 /* ── 品質評估面板 ── */
 .assess-section{margin-bottom:18px}
 .assess-title{font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
@@ -215,6 +258,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
       <button class="tab-btn active" onclick="switchTab('nodes')">節點列表</button>
       <button class="tab-btn" onclick="switchTab('assess')">品質評估</button>
       <button class="tab-btn" onclick="switchTab('history')">歷史記錄</button>
+      <button class="tab-btn" onclick="switchTab('ctrl')">遠端控制</button>
     </div>
 
     <!-- 節點列表 -->
@@ -368,6 +412,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
             <option value="">— 請選擇節點 —</option>
           </select>
         </div>
+
         <div class="chart-wrap" id="chart-wrap" style="display:none">
           <div class="chart-title">品質評分趨勢（最近 50 筆）</div>
           <canvas id="quality-chart" height="180"></canvas>
@@ -377,6 +422,84 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
           <canvas id="sensor-chart" height="180"></canvas>
         </div>
         <div id="history-list" style="margin-top:10px"></div>
+      </div>
+
+      <!-- 遠端控制 -->
+      <div class="tab-pane" id="tab-ctrl">
+        <div class="ctrl-panel-header">🕹️ IoT 遠端控制</div>
+
+        <!-- 節點資訊卡片 -->
+        <div class="ctrl-node-info">
+          <div class="ctrl-node-name" id="ctrl-node-name">ISM 智慧貨架 #1</div>
+          <div class="ctrl-node-token">Blynk 主機： sgp1.blynk.cloud</div>
+        </div>
+
+        <!-- Y 軸：前後 -->
+        <div class="ctrl-axis-section">
+          <div class="ctrl-axis-label">
+            <span class="axis-dot" style="background:#22c55e"></span>
+            Y Axis &mdash; 前後移動
+          </div>
+          <div class="ctrl-btn-row">
+            <button class="ctrl-btn ctrl-btn-y" id="btn-fwd"
+              onmousedown="ctrlPress('V1',1,'btn-fwd')" onmouseup="ctrlRelease('V1','btn-fwd')" onmouseleave="ctrlRelease('V1','btn-fwd')"
+              ontouchstart="ctrlPress('V1',1,'btn-fwd')" ontouchend="ctrlRelease('V1','btn-fwd')">
+              <span class="ctrl-btn-icon">↑</span>FWD
+            </button>
+            <button class="ctrl-btn ctrl-btn-y" id="btn-rev"
+              onmousedown="ctrlPress('V2',1,'btn-rev')" onmouseup="ctrlRelease('V2','btn-rev')" onmouseleave="ctrlRelease('V2','btn-rev')"
+              ontouchstart="ctrlPress('V2',1,'btn-rev')" ontouchend="ctrlRelease('V2','btn-rev')">
+              <span class="ctrl-btn-icon">↓</span>REV
+            </button>
+          </div>
+        </div>
+
+        <!-- X 軸：左右 -->
+        <div class="ctrl-axis-section">
+          <div class="ctrl-axis-label">
+            <span class="axis-dot" style="background:#3b82f6"></span>
+            X Axis &mdash; 左右移動
+          </div>
+          <div class="ctrl-btn-row">
+            <button class="ctrl-btn ctrl-btn-x" id="btn-left"
+              onmousedown="ctrlPress('V3',1,'btn-left')" onmouseup="ctrlRelease('V3','btn-left')" onmouseleave="ctrlRelease('V3','btn-left')"
+              ontouchstart="ctrlPress('V3',1,'btn-left')" ontouchend="ctrlRelease('V3','btn-left')">
+              <span class="ctrl-btn-icon">←</span>LEFT
+            </button>
+            <button class="ctrl-btn ctrl-btn-x" id="btn-right"
+              onmousedown="ctrlPress('V4',1,'btn-right')" onmouseup="ctrlRelease('V4','btn-right')" onmouseleave="ctrlRelease('V4','btn-right')"
+              ontouchstart="ctrlPress('V4',1,'btn-right')" ontouchend="ctrlRelease('V4','btn-right')">
+              <span class="ctrl-btn-icon">→</span>RIGHT
+            </button>
+          </div>
+        </div>
+
+        <!-- Z 軸：上下 -->
+        <div class="ctrl-axis-section">
+          <div class="ctrl-axis-label">
+            <span class="axis-dot" style="background:#f97316"></span>
+            Z Axis &mdash; 上下移動
+          </div>
+          <div class="ctrl-btn-row">
+            <button class="ctrl-btn ctrl-btn-z" id="btn-up"
+              onmousedown="ctrlPress('V5',1,'btn-up')" onmouseup="ctrlRelease('V5','btn-up')" onmouseleave="ctrlRelease('V5','btn-up')"
+              ontouchstart="ctrlPress('V5',1,'btn-up')" ontouchend="ctrlRelease('V5','btn-up')">
+              <span class="ctrl-btn-icon">▲</span>UP
+            </button>
+            <button class="ctrl-btn ctrl-btn-z" id="btn-down"
+              onmousedown="ctrlPress('V6',1,'btn-down')" onmouseup="ctrlRelease('V6','btn-down')" onmouseleave="ctrlRelease('V6','btn-down')"
+              ontouchstart="ctrlPress('V6',1,'btn-down')" ontouchend="ctrlRelease('V6','btn-down')">
+              <span class="ctrl-btn-icon">▼</span>DOWN
+            </button>
+          </div>
+        </div>
+
+        <!-- 狀態列 -->
+        <div class="ctrl-status-bar">
+          <div class="ctrl-status-dot" id="ctrl-status-dot"></div>
+          <span id="ctrl-status-text">Ready — 請按下按鈕發送指令</span>
+        </div>
+        <div class="ctrl-region-info">🌐 連線至 sgp1.blynk.cloud &nbsp;·&nbsp; 按下發送 1，放開發送 0</div>
       </div>
     </div>
   </div>
@@ -479,6 +602,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
       <div class="full">
         <label class="modal-label">MQTT 主題</label>
         <input class="modal-input" id="m-mqtt-topic" placeholder="m5go/ISM/env"/>
+      </div>
+      <div class="full">
+        <label class="modal-label">Blynk Token（IoT 遠端控制）</label>
+        <input class="modal-input" id="m-blynk-token" placeholder="輸入 Blynk Auth Token，留空則不顯示控制按鈕"/>
       </div>
 
       <!-- 地圖位置 -->
@@ -711,6 +838,8 @@ function renderNodeList() {
     const statusText  = n.status === 'active' ? '線上' : n.status === 'maintenance' ? '維護中' : '離線';
     const productName = {banana:'香蕉',apple:'蘋果',tomato:'番茄',lettuce:'萵苣'}[n.product] || n.product;
     const editBtn = isAdmin ? `<button class="btn-node-action btn-node-edit" onclick="event.stopPropagation();openNodeModal('${n.node_id}')">編輯</button>` : '';
+    // 遠端控制按鈕：僅對有 Blynk 控制代碼的節點顯示（目前為 A01）
+    const ctrlBtn = n.blynk_token ? `<button class="btn-node-action btn-node-ctrl" onclick="event.stopPropagation();openCtrlPanel('${n.node_id}','${n.name}','${n.blynk_token}')">🕹️ 控制</button>` : '';
     return `<div class="node-card${selectedNodeId===n.node_id?' selected':''}" onclick="selectNode('${n.node_id}')">
       <div class="node-card-header">
         <div class="node-name">${n.name}</div>
@@ -736,6 +865,7 @@ function renderNodeList() {
       <div class="node-actions">
         ${editBtn}
         <button class="btn-node-action btn-node-assess" onclick="event.stopPropagation();selectNode('${n.node_id}');switchTab('assess')">品質評估</button>
+        ${ctrlBtn}
       </div>
     </div>`;
   }).join('');
@@ -898,6 +1028,7 @@ function openNodeModal(nodeId) {
     document.getElementById('m-base-price').value = node.base_price || 100;
     document.getElementById('m-camera-url').value = node.camera_url || '';
     document.getElementById('m-mqtt-topic').value = node.mqtt_topic || '';
+    document.getElementById('m-blynk-token').value = node.blynk_token || '';
     document.getElementById('m-lat').value = node.lat || 22.3193;
     document.getElementById('m-lng').value = node.lng || 114.1694;
     deleteBtn.style.display = 'block';
@@ -917,6 +1048,7 @@ function openNodeModal(nodeId) {
     document.getElementById('m-base-price').value = 100;
     document.getElementById('m-camera-url').value = '';
     document.getElementById('m-mqtt-topic').value = '';
+    document.getElementById('m-blynk-token').value = '';
     // 使用地圖中心作為預設座標
     try {
       const center = leafletMap ? leafletMap.getCenter() : {lat: 22.3193, lng: 114.1694};
@@ -961,6 +1093,7 @@ async function saveNode() {
     base_price:    parseFloat(document.getElementById('m-base-price').value) || 100,
     camera_url:    document.getElementById('m-camera-url').value.trim(),
     mqtt_topic:    document.getElementById('m-mqtt-topic').value.trim(),
+    blynk_token:   document.getElementById('m-blynk-token').value.trim(),
     lat:           parseFloat(document.getElementById('m-lat').value) || 22.3193,
     lng:           parseFloat(document.getElementById('m-lng').value) || 114.1694,
   };
@@ -1263,14 +1396,85 @@ async function loadHistory() {
   }
 }
 
-// ── Tab 切換 ──────────────────────────────────────────────────────────────────
+// ── Tab 切換 ────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
-    const tabs = ['nodes','assess','history'];
+    const tabs = ['nodes','assess','history','ctrl'];
     b.classList.toggle('active', tabs[i] === tab);
   });
   document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + tab).classList.add('active');
+}
+
+// ── IoT 遠端控制（Blynk Cloud）────────────────────────────────────────────────────────────
+const BLYNK_REGION = 'sgp1.blynk.cloud';
+let ctrlToken = '';       // 目前控制節點的 Blynk Token
+let ctrlLastState = {};   // 防止重複發送
+
+// 開啟遠端控制面板，更新節點資訊并切換 Tab
+function openCtrlPanel(nodeId, nodeName, token) {
+  ctrlToken = token;
+  ctrlLastState = {};
+  document.getElementById('ctrl-node-name').textContent = nodeName;
+  const dot = document.getElementById('ctrl-status-dot');
+  const txt = document.getElementById('ctrl-status-text');
+  dot.className = 'ctrl-status-dot';
+  txt.textContent = `Ready — 節點: ${nodeName}`;
+  switchTab('ctrl');
+}
+
+// 按下按鈕：發送 1
+function ctrlPress(pin, value, btnId) {
+  if (!ctrlToken) {
+    showToast('請先選擇具有控制權限的節點', 'error');
+    return;
+  }
+  if (ctrlLastState[pin] === value) return;
+  ctrlLastState[pin] = value;
+
+  const btn = document.getElementById(btnId);
+  if (btn) btn.classList.add('pressing');
+
+  const dot = document.getElementById('ctrl-status-dot');
+  const txt = document.getElementById('ctrl-status-text');
+  dot.className = 'ctrl-status-dot active';
+  txt.textContent = `發送中: ${pin} = ${value} ...`;
+
+  const url = `https://${BLYNK_REGION}/external/api/update?token=${ctrlToken}&${pin}=${value}`;
+  fetch(url, { mode: 'no-cors' })
+    .then(() => {
+      txt.textContent = `已發送: ${pin} = ${value} ✓`;
+      console.log(`Blynk CMD: ${pin}=${value}`);
+    })
+    .catch(err => {
+      dot.className = 'ctrl-status-dot error';
+      txt.textContent = `發送失敗！請檢查網路`;
+      console.error('Blynk error:', err);
+    });
+}
+
+// 放開按鈕：發送 0
+function ctrlRelease(pin, btnId) {
+  if (!ctrlToken) return;
+  if (ctrlLastState[pin] === 0) return;
+  ctrlLastState[pin] = 0;
+
+  const btn = document.getElementById(btnId);
+  if (btn) btn.classList.remove('pressing');
+
+  const dot = document.getElementById('ctrl-status-dot');
+  const txt = document.getElementById('ctrl-status-text');
+  dot.className = 'ctrl-status-dot';
+  txt.textContent = `已釋放: ${pin} = 0`;
+
+  const url = `https://${BLYNK_REGION}/external/api/update?token=${ctrlToken}&${pin}=0`;
+  fetch(url, { mode: 'no-cors' })
+    .then(() => {
+      console.log(`Blynk CMD: ${pin}=0`);
+    })
+    .catch(err => {
+      console.error('Blynk release error:', err);
+    });
 }
 </script>
 </body>

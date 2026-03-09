@@ -665,6 +665,7 @@ class NodeRequest(BaseModel):
     base_price: float = 100.0
     camera_url: str = ""
     mqtt_topic: str = ""
+    blynk_token: str = ""
     status: str = "active"
 
 
