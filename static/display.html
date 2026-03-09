@@ -33,6 +33,71 @@
   }
 
   /* ── 頂部標題欄 ── */
+  .topbar-price-block{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    background:rgba(255,255,255,.04);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:8px 20px;
+  }
+  .topbar-price-label{
+    font-size:.6rem;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:2px;
+  }
+  .topbar-price-base{
+    font-size:.7rem;
+    color:var(--muted);
+    text-decoration:line-through;
+  }
+  .topbar-price-main{
+    font-size:2rem;
+    font-weight:900;
+    color:#fff;
+    line-height:1;
+    display:flex;
+    align-items:flex-start;
+    gap:3px;
+  }
+  .topbar-price-currency{
+    font-size:1rem;
+    color:var(--muted);
+    margin-top:4px;
+  }
+  .topbar-price-unit{
+    font-size:.75rem;
+    color:var(--muted);
+    margin-top:10px;
+  }
+  .topbar-discount-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:.72rem;
+    font-weight:700;
+    padding:4px 12px;
+    border-radius:999px;
+    background:rgba(34,197,94,.15);
+    color:var(--green);
+    border:1px solid rgba(34,197,94,.3);
+    white-space:nowrap;
+  }
+  .topbar-discount-badge.has-discount{
+    background:rgba(239,68,68,.15);
+    color:var(--red);
+    border-color:rgba(239,68,68,.3);
+  }
+  .topbar-price-reason{
+    font-size:.62rem;
+    color:var(--muted);
+    margin-top:3px;
+    max-width:180px;
+    line-height:1.3;
+  }
   .topbar{
     background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
     border-bottom:1px solid var(--border);
@@ -191,7 +256,7 @@
   /* 感測器四格 */
   .sensor-grid{
     display:grid;
-    grid-template-columns:repeat(4,1fr);
+    grid-template-columns:repeat(3,1fr);
     gap:12px;
   }
   .sensor-card{
@@ -311,7 +376,7 @@
   @media(max-width:900px){
     .main{grid-template-columns:1fr;grid-template-rows:auto}
     .left-col{grid-row:auto;flex-direction:row;flex-wrap:wrap}
-    .gauge-card,.price-card{flex:1;min-width:200px}
+    .gauge-card{flex:1;min-width:200px}
     .sensor-grid{grid-template-columns:repeat(2,1fr)}
   }
 </style>
@@ -328,6 +393,22 @@
     </div>
   </div>
   <div class="topbar-right">
+    <!-- 動態售價大字顯示區塊 -->
+    <div class="topbar-price-block">
+      <div>
+        <div class="topbar-price-label">💰 Dynamic Pricing</div>
+        <div class="topbar-price-base" id="tb-price-base">Base: $--/kg</div>
+        <div class="topbar-price-main">
+          <span class="topbar-price-currency">$</span>
+          <span id="tb-price-main">--</span>
+          <span class="topbar-price-unit">/kg</span>
+        </div>
+      </div>
+      <div>
+        <div class="topbar-discount-badge" id="tb-discount-badge">--</div>
+        <div class="topbar-price-reason" id="tb-discount-reason">正在載入定價資訊…</div>
+      </div>
+    </div>
     <div class="status-dot offline" id="status-dot"></div>
     <div class="clock" id="clock">--:--:--</div>
     <div class="update-badge" id="update-badge">等待數據…</div>
@@ -381,21 +462,43 @@
       </div>
     </div>
 
-    <!-- 價格卡 -->
-    <div class="card price-card">
-      <div class="card-title"><span>💰</span> DYNAMIC PRICING STATUS</div>
-      <div class="price-base" id="price-base">Base Price: $--/kg</div>
-      <div class="price-main">
-        <span class="price-currency">$</span>
-        <span id="price-main">--</span>
-        <span class="price-unit">/kg</span>
-      </div>
-      <div class="discount-badge" id="discount-badge">
-        Standard Price (No Discount)
-      </div>
-      <div class="discount-reason" id="discount-reason">
-        正在載入定價資訊…
-      </div>
+    <!-- 折扣說明卡（簡化版） -->
+    <div class="card" style="padding:14px 16px">
+      <div class="card-title"><span>📊</span> DISCOUNT BREAKDOWN</div>
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">折扣依據複合 DSL 自動計算</div>
+      <table style="width:100%;border-collapse:collapse;font-size:.65rem">
+        <tr style="color:var(--muted);border-bottom:1px solid #1e293b">
+          <th style="text-align:left;padding:4px 0">複合 DSL</th>
+          <th style="text-align:center;padding:4px 0">折扣</th>
+          <th style="text-align:right;padding:4px 0">狀態</th>
+        </tr>
+        <tr id="dr-row-1" style="border-bottom:1px solid #1e293b11">
+          <td style="padding:4px 0;color:#94a3b8">DSL &gt; 7 天</td>
+          <td style="text-align:center;color:#22c55e">無折扣</td>
+          <td style="text-align:right" id="dr-ind-1">—</td>
+        </tr>
+        <tr id="dr-row-2" style="border-bottom:1px solid #1e293b11">
+          <td style="padding:4px 0;color:#94a3b8">3–7 天</td>
+          <td style="text-align:center;color:#eab308">-10%</td>
+          <td style="text-align:right" id="dr-ind-2">—</td>
+        </tr>
+        <tr id="dr-row-3" style="border-bottom:1px solid #1e293b11">
+          <td style="padding:4px 0;color:#94a3b8">1–3 天</td>
+          <td style="text-align:center;color:#f97316">-25%</td>
+          <td style="text-align:right" id="dr-ind-3">—</td>
+        </tr>
+        <tr id="dr-row-4" style="border-bottom:1px solid #1e293b11">
+          <td style="padding:4px 0;color:#94a3b8">0.5–1 天</td>
+          <td style="text-align:center;color:#ef4444">-35%</td>
+          <td style="text-align:right" id="dr-ind-4">—</td>
+        </tr>
+        <tr id="dr-row-5">
+          <td style="padding:4px 0;color:#94a3b8">≤ 0.5 天</td>
+          <td style="text-align:center;color:#dc2626">-50%</td>
+          <td style="text-align:right" id="dr-ind-5">—</td>
+        </tr>
+      </table>
+      <div style="margin-top:10px;font-size:.65rem;color:var(--muted)" id="discount-reason">正在載入定價資訊…</div>
     </div>
 
   </div>
@@ -453,18 +556,6 @@
         <span class="light-level-badge" id="light-level-badge" style="background:#33415533;color:#94a3b8">--</span>
         <div class="sensor-mini-chart">
           <canvas id="chart-light"></canvas>
-        </div>
-      </div>
-      <!-- 氣流 -->
-      <div class="sensor-card air">
-        <div class="sensor-icon">💨</div>
-        <div>
-          <span class="sensor-val" id="s-air">--</span>
-          <span class="sensor-unit">m/s</span>
-        </div>
-        <div class="sensor-name">AIRFLOW</div>
-        <div class="sensor-mini-chart">
-          <canvas id="chart-air"></canvas>
         </div>
       </div>
     </div>
@@ -790,27 +881,51 @@ async function fetchAndUpdate() {
       const basePrice  = q.base_price  ?? node.base_price ?? 100;
       const finalPrice = q.final_price ?? basePrice;
       const discPct    = q.discount_pct ?? 0;
-      document.getElementById('price-base').textContent =
-        `Base Price: $${basePrice.toFixed(2)}/kg`;
-      document.getElementById('price-main').textContent = finalPrice.toFixed(2);
 
-      const discBadge = document.getElementById('discount-badge');
+      // 更新 topbar 動態售價大字顯示
+      document.getElementById('tb-price-base').textContent = `Base: $${basePrice.toFixed(2)}/kg`;
+      document.getElementById('tb-price-main').textContent = finalPrice.toFixed(2);
+      const tbBadge = document.getElementById('tb-discount-badge');
       if (discPct > 0) {
-        discBadge.textContent = `🔻 折扣 ${discPct}% OFF`;
-        discBadge.className = 'discount-badge has-discount';
+        tbBadge.textContent = `🔻 -${discPct}% OFF`;
+        tbBadge.className = 'topbar-discount-badge has-discount';
       } else {
-        discBadge.textContent = 'Standard Price (No Discount)';
-        discBadge.className = 'discount-badge';
+        tbBadge.textContent = '✔ Standard Price';
+        tbBadge.className = 'topbar-discount-badge';
       }
+      document.getElementById('tb-discount-reason').textContent =
+        q.discount_reason || '品質良好，正常售價';
+
+      // 更新折扣等級表狀態指示器
+      const dslForDisc = dsl;
+      const discRows = [
+        {id:'dr-ind-1', min:7,   max:Infinity, label:'✔ 當前'},
+        {id:'dr-ind-2', min:3,   max:7,        label:'✔ 當前'},
+        {id:'dr-ind-3', min:1,   max:3,        label:'✔ 當前'},
+        {id:'dr-ind-4', min:0.5, max:1,        label:'✔ 當前'},
+        {id:'dr-ind-5', min:0,   max:0.5,      label:'✔ 當前'},
+      ];
+      discRows.forEach(r => {
+        const el = document.getElementById(r.id);
+        if (!el) return;
+        const active = dslForDisc >= r.min && dslForDisc < r.max;
+        el.textContent = active ? r.label : '—';
+        el.style.color = active ? '#22c55e' : '#475569';
+        el.parentElement.style.background = active ? 'rgba(34,197,94,.06)' : '';
+      });
+
       document.getElementById('discount-reason').textContent =
         q.discount_reason || '品質良好，正常售價';
     } else {
       // 無品質數據時顯示基礎價格
       const basePrice = node.base_price ?? 100;
-      document.getElementById('price-base').textContent = `Base Price: $${basePrice.toFixed(2)}/kg`;
-      document.getElementById('price-main').textContent = basePrice.toFixed(2);
-      document.getElementById('discount-reason').textContent =
+      document.getElementById('tb-price-base').textContent = `Base: $${basePrice.toFixed(2)}/kg`;
+      document.getElementById('tb-price-main').textContent = basePrice.toFixed(2);
+      document.getElementById('tb-discount-badge').textContent = '等待資料…';
+      document.getElementById('tb-discount-reason').textContent =
         online ? '感測器已連線，等待 AI 推理（15 秒後首次執行）…' : '感測器離線，請確認裝置連線';
+      document.getElementById('discount-reason').textContent =
+        online ? '感測器已連線，等待 AI 推理…' : '感測器離線';
     }
 
     // 歷史圖表

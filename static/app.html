@@ -1210,8 +1210,25 @@ async function deleteNode() {
 function refreshCamera() {
   const nodeId = selectedNodeId || 'NODE_ISM_001';
   const img = document.getElementById('assess-camera');
-  img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
   document.getElementById('camera-ts').textContent = new Date().toLocaleTimeString('zh-TW');
+
+  // 尚未選擇節點時，使用代理
+  const node = nodes.find(n => n.node_id === nodeId);
+  const camUrl = node && node.camera_url ? node.camera_url : null;
+
+  if (camUrl) {
+    // 直接載入相機 URL（加時間戳避免快取）
+    const directUrl = camUrl.includes('?') ? `${camUrl}&_t=${Date.now()}` : `${camUrl}?_t=${Date.now()}`;
+    img.onerror = () => {
+      // 直接載入失敗時回退到代理
+      img.onerror = null;
+      img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
+    };
+    img.src = directUrl;
+  } else {
+    // 無 camera_url 時使用代理
+    img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
+  }
 }
 
 // ── 品質評估 ──────────────────────────────────────────────────────────────────
@@ -1272,6 +1289,36 @@ async function runPredict() {
       d = normalizeQuality(await r2.json());
     }
     showResult(d);
+
+    // 品質評估後自動儲存初始 DSL 和入庫日期到資料庫
+    try {
+      const storageDate = document.getElementById('assess-storage-date').value;
+      const node = nodes.find(n => n.node_id === nodeId);
+      if (node && (node.initial_dsl !== initialDsl || node.storage_date !== storageDate || node.base_price !== basePrice)) {
+        const updatePayload = {
+          ...node,
+          initial_dsl:  initialDsl,
+          storage_date: storageDate,
+          base_price:   basePrice,
+          product:      product,
+        };
+        const ur = await fetch(`/api/nodes/${nodeId}`, {
+          method: 'PUT',
+          headers: { ...authHeader(), 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload)
+        });
+        if (ur.ok) {
+          // 更新本地 nodes 陣列中的資料
+          const idx = nodes.findIndex(n => n.node_id === nodeId);
+          if (idx >= 0) {
+            nodes[idx] = { ...nodes[idx], initial_dsl: initialDsl, storage_date: storageDate, base_price: basePrice, product };
+          }
+          console.log('✅ 已自動儲存設定：初始 DSL=' + initialDsl + ', 入庫日期=' + storageDate);
+        }
+      }
+    } catch(saveErr) {
+      console.warn('自動儲存設定失敗：', saveErr);
+    }
   } catch(e) {
     errMsg.textContent = '錯誤：' + e.message;
     errMsg.style.display = 'block';
