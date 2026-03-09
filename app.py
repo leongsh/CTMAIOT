@@ -507,7 +507,15 @@ def _keep_alive_loop():
     import requests as _req
     # 等待服務完全啟動
     time.sleep(60)
-    base_url = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
+    # 支援 Fly.io（FLY_APP_NAME）和 Render（RENDER_EXTERNAL_URL）兩個平台
+    fly_app = os.environ.get("FLY_APP_NAME")
+    render_url = os.environ.get("RENDER_EXTERNAL_URL")
+    if fly_app:
+        base_url = f"https://{fly_app}.fly.dev"
+    elif render_url:
+        base_url = render_url
+    else:
+        base_url = "http://localhost:8080"
     ping_url = f"{base_url}/api/health"
     while True:
         try:
