@@ -926,11 +926,13 @@ async def calc_quality(req: QualityRequest):
     temp = req.temperature if req.temperature is not None else node_sensor.get("temperature")
     hum  = req.humidity    if req.humidity    is not None else node_sensor.get("humidity")
 
+    # 無 MQTT 數據時使用預設環境值（室溫 25°C、濕度 65%），不中斷評估
+    using_default_sensor = False
     if temp is None or hum is None:
-        raise HTTPException(
-            status_code=422,
-            detail="尚未收到感測器數據，請確認 M5GO 裝置已開機並連接 MQTT，或手動輸入溫溼度。"
-        )
+        temp = 25.0
+        hum  = 65.0
+        using_default_sensor = True
+        logger.info("/api/quality [%s]: no MQTT data, using default sensor (25°C, 65%%)", req.node_id)
 
     initial_dsl = req.initial_dsl
     if initial_dsl is None:
@@ -997,6 +999,8 @@ async def calc_quality(req: QualityRequest):
     logger.info("ai_cache updated from manual assessment: node=%s Q=%.1f discount=%s%%",
                 req.node_id, data.get("quality_score", 0), data.get("discount_pct", 0))
 
+    data["using_default_sensor"] = using_default_sensor
+    data["sensor_source"] = "default (25°C/65%)" if using_default_sensor else "mqtt"
     return data
 
 
@@ -1022,11 +1026,13 @@ async def predict(req: PredictRequest):
     temp = req.temperature if req.temperature is not None else node_sensor.get("temperature")
     hum  = req.humidity    if req.humidity    is not None else node_sensor.get("humidity")
 
+    # 無 MQTT 數據時使用預設環境值（室溫 25°C、濕度 65%），不中斷評估
+    using_default_sensor = False
     if temp is None or hum is None:
-        raise HTTPException(
-            status_code=422,
-            detail="尚未收到感測器數據，請確認 M5GO 裝置已開機並連接 MQTT。"
-        )
+        temp = 25.0
+        hum  = 65.0
+        using_default_sensor = True
+        logger.info("/api/predict [%s]: no MQTT data, using default sensor (25°C, 65%%)", req.node_id)
 
     # 取得節點相機 URL
     node = get_node(req.node_id)
@@ -1124,6 +1130,8 @@ async def predict(req: PredictRequest):
             "humidity":     round(hum, 1),
             "storage_time": req.storage_time,
         },
+        "using_default_sensor": using_default_sensor,
+        "sensor_source": "default (25°C/65%)" if using_default_sensor else "mqtt",
     }
 
 

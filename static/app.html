@@ -302,6 +302,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
         <!-- 評估結果 -->
         <div class="result-panel" id="result-panel">
           <div class="assess-title">評估結果</div>
+          <div id="sensor-source-notice" style="display:none;font-size:12px;padding:6px 10px;border-radius:6px;background:rgba(0,0,0,0.2);margin-bottom:10px"></div>
           <div class="score-trio">
             <div class="score-box">
               <div class="score-box-label">AI 品質</div>
@@ -1096,6 +1097,8 @@ function normalizePredict(d) {
     dsl_combined: d.dsl_combined, discount_pct: d.discount_pct,
     base_price: d.base_price, final_price: d.final_price,
     discount_reason: d.discount_reason,
+    using_default_sensor: d.using_default_sensor,
+    sensor_source: d.sensor_source,
   };
 }
 
@@ -1107,6 +1110,8 @@ function normalizeQuality(d) {
     dsl_formula: d.dsl_formula, dsl_combined: d.dsl_days,
     discount_pct: d.discount_pct, base_price: d.base_price,
     final_price: d.final_price, discount_reason: d.discount_reason,
+    using_default_sensor: d.using_default_sensor,
+    sensor_source: d.sensor_source,
   };
 }
 
@@ -1143,6 +1148,20 @@ function showResult(d) {
   const dsl = d.dsl_combined;
   const idx = dsl > 7 ? 0 : dsl > 3 ? 1 : dsl > 1 ? 2 : dsl > 0.5 ? 3 : 4;
   if (rows[idx]) rows[idx].classList.add('active-row');
+
+  // 顯示感測器來源提示
+  const sensorNotice = document.getElementById('sensor-source-notice');
+  if (sensorNotice) {
+    if (d.using_default_sensor) {
+      sensorNotice.textContent = '⚠️ 未收到 MQTT 數據，使用預設環境值（25°C / 65%）進行計算';
+      sensorNotice.style.display = 'block';
+      sensorNotice.style.color = '#f59e0b';
+    } else {
+      sensorNotice.textContent = '✅ 使用即時 MQTT 感測器數據';
+      sensorNotice.style.display = 'block';
+      sensorNotice.style.color = '#22c55e';
+    }
+  }
 
   document.getElementById('result-panel').style.display = 'block';
 }
