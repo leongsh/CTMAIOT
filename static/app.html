@@ -313,11 +313,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
             <input type="number" id="assess-initial-dsl" value="10" min="1" max="60"/>
           </div>
           <div class="ctrl-group">
-            <label>已儲存天數</label>
-            <div class="slider-val"><span id="storage-display">1</span> 天</div>
-            <input type="range" id="storage-slider" min="0" max="60" value="1"
-                   oninput="document.getElementById('storage-display').textContent=this.value"/>
-            <div class="slider-row"><span>0</span><span>60 天</span></div>
+            <label>入庫日期</label>
+            <input type="date" id="assess-storage-date"
+                   style="width:100%;padding:6px 10px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#f1f5f9;font-size:.9rem"
+                   onchange="updateAssessStorageDays()"/>
+            <div style="font-size:.75rem;color:#94a3b8;margin-top:4px">已存放天數：<span id="assess-days-display" style="color:#facc15;font-weight:700">--</span> 天</div>
           </div>
           <div class="ctrl-group">
             <label>原始售價（元）</label>
@@ -960,6 +960,15 @@ function selectNode(nodeId) {
     document.getElementById('assess-product').value = node.product || 'banana';
     document.getElementById('assess-initial-dsl').value = node.initial_dsl || 10;
     document.getElementById('assess-price').value = node.base_price || 100;
+    // 自動填入入庫日期
+    const assessDateEl = document.getElementById('assess-storage-date');
+    if (node.storage_date) {
+      assessDateEl.value = node.storage_date;
+    } else {
+      // 如果沒有入庫日期，預設為今天
+      assessDateEl.value = new Date().toISOString().slice(0, 10);
+    }
+    updateAssessStorageDays();
     refreshCamera();
   }
 }
@@ -1101,12 +1110,20 @@ function calcDaysStored(dateStr) {
   return Math.max(0, diffDays);
 }
 
-// 更新已存放天數顯示
+// 更新已存放天數顯示（編輯 Modal 用）
 function updateDaysStoredDisplay() {
   const dateStr = document.getElementById('m-storage-date')?.value;
   const days = calcDaysStored(dateStr);
   const displayEl = document.getElementById('m-days-stored-display');
   if (displayEl) displayEl.textContent = days;
+}
+
+// 更新品質評估 Tab 的已存放天數顯示
+function updateAssessStorageDays() {
+  const dateStr = document.getElementById('assess-storage-date')?.value;
+  const days = calcDaysStored(dateStr);
+  const displayEl = document.getElementById('assess-days-display');
+  if (displayEl) displayEl.textContent = days >= 0 ? days : '--';
 }
 
 async function saveNode() {
@@ -1218,7 +1235,7 @@ async function runPredict() {
   btn.disabled = true;
   spinner.style.display = 'block';
 
-  const storageDays = parseFloat(document.getElementById('storage-slider').value);
+  const storageDays = calcDaysStored(document.getElementById('assess-storage-date').value) || 1;
   const basePrice   = parseFloat(document.getElementById('assess-price').value) || 100;
   const product     = document.getElementById('assess-product').value;
   const initialDsl  = parseFloat(document.getElementById('assess-initial-dsl').value) || PRODUCT_DEFAULT_DSL[product];
