@@ -92,7 +92,9 @@ CAMERA_URL  = "https://ezdata2.m5stack.com/9888E0031824/captured.jpg"
 MQTT_BROKER    = "broker.emqx.io"
 MQTT_PORT      = 1883
 MQTT_TOPIC     = "m5go/ISM/env"
-MQTT_CLIENT_ID = "FreshServer_ISM_001"
+# 使用動態唯一 ID 防止多個實例互踢（固定 ID 會導致連線循環斷線）
+import uuid as _uuid
+MQTT_CLIENT_ID = f"FreshServer_{_uuid.uuid4().hex[:8]}"
 
 IMG_HEIGHT = 128
 IMG_WIDTH  = 128
@@ -155,20 +157,6 @@ def _refresh_mqtt_topic_map():
         logger.warning("_refresh_mqtt_topic_map error: %s", e)
 
 
-def on_connect(client, userdata, flags, rc):
-    if rc == 0:
-        logger.info("MQTT connected, subscribing to %s", MQTT_TOPIC)
-        client.subscribe(MQTT_TOPIC)
-        # 更新主題對應表並訂閱所有節點主題
-        _refresh_mqtt_topic_map()
-        for topic, node_id in _mqtt_topic_map.items():
-            if topic != MQTT_TOPIC:
-                client.subscribe(topic)
-                logger.info("Also subscribing: %s -> %s", topic, node_id)
-    else:
-        logger.warning("MQTT connect failed, rc=%s", rc)
-
-
 def on_message(client, userdata, msg):
     import json
     global sensor_cache
@@ -192,21 +180,64 @@ def on_message(client, userdata, msg):
         except Exception as e:
             logger.debug("Insert reading error: %s", e)
 
-        logger.info("Sensor[%s] T=%.1f H=%.1f", node_id, temp, hum)
+        mqtt_status["last_message"] = ts
+        mqtt_status["messages_received"] += 1
+        logger.info("Sensor[%s] T=%.1f H=%.1f (total=%d)", node_id, temp, hum, mqtt_status["messages_received"])
     except Exception as e:
         logger.error("MQTT parse error: %s", e)
 
 
+# MQTT 連線狀態診斷
+mqtt_status = {
+    "connected": False,
+    "last_connect": None,
+    "last_message": None,
+    "client_id": MQTT_CLIENT_ID,
+    "reconnect_count": 0,
+    "messages_received": 0,
+}
+
+
+def on_connect(client, userdata, flags, rc):
+    if rc == 0:
+        mqtt_status["connected"] = True
+        mqtt_status["last_connect"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        logger.info("MQTT connected (id=%s), subscribing to %s", MQTT_CLIENT_ID, MQTT_TOPIC)
+        client.subscribe(MQTT_TOPIC)
+        # 更新主題對應表並訂閱所有節點主題
+        _refresh_mqtt_topic_map()
+        for topic, node_id in _mqtt_topic_map.items():
+            if topic != MQTT_TOPIC:
+                client.subscribe(topic)
+                logger.info("Also subscribing: %s -> %s", topic, node_id)
+    else:
+        mqtt_status["connected"] = False
+        logger.warning("MQTT connect failed, rc=%s", rc)
+
+
+def on_disconnect(client, userdata, rc):
+    mqtt_status["connected"] = False
+    mqtt_status["reconnect_count"] += 1
+    logger.warning("MQTT disconnected rc=%s, reconnect_count=%d", rc, mqtt_status["reconnect_count"])
+
+
 def start_mqtt():
-    client = mqtt.Client(client_id=MQTT_CLIENT_ID)
+    import uuid
+    # 每次啟動都使用全新的唯一 ID，防止跟舊連線互踢
+    unique_id = f"FreshServer_{uuid.uuid4().hex[:8]}"
+    mqtt_status["client_id"] = unique_id
+    client = mqtt.Client(client_id=unique_id, clean_session=True)
     client.on_connect = on_connect
     client.on_message = on_message
+    client.on_disconnect = on_disconnect
     while True:
         try:
-            client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
+            logger.info("MQTT connecting with id=%s", unique_id)
+            client.connect(MQTT_BROKER, MQTT_PORT, keepalive=30)
             client.loop_forever()
         except Exception as e:
             logger.warning("MQTT error: %s, retrying in 5s...", e)
+            mqtt_status["connected"] = False
             time.sleep(5)
 
 
@@ -484,6 +515,17 @@ def _keep_alive_loop():
 async def health_check():
     """健康檢查端點（Keep-Alive 使用）"""
     return {"status": "ok", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+
+@app.get("/api/mqtt/status")
+async def mqtt_status_api():
+    """返回 MQTT 連線狀態與最新感測器數據（免登入）"""
+    return {
+        "mqtt": mqtt_status,
+        "sensor_cache": sensor_cache,
+        "topic_map": _mqtt_topic_map,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
