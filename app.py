@@ -81,7 +81,7 @@ from database import (
     insert_reading, insert_prediction,
     get_node_readings, get_node_predictions,
     get_dashboard_stats, verify_password, _hash_password,
-    get_db, DATABASE_URL,
+    get_db, DATABASE_URL, update_node_settings,
 )
 from auth import (
     create_access_token, decode_token, authenticate_user,
@@ -737,6 +737,53 @@ async def delete_node(node_id: str, admin: dict = Depends(require_admin)):
 async def node_readings(node_id: str, limit: int = 100,
                         current_user: dict = Depends(get_current_user)):
     return get_node_readings(node_id, limit)
+
+
+class NodeSettingsRequest(BaseModel):
+    """PATCH /api/nodes/{node_id}/settings 的請求體，只更新評估設定欄位"""
+    initial_dsl:  float = 10.0
+    storage_date: Optional[str] = None   # 'YYYY-MM-DD'
+    base_price:   float = 100.0
+    product:      str = "banana"
+
+
+@app.patch("/api/nodes/{node_id}/settings")
+async def patch_node_settings(
+    node_id: str,
+    req: NodeSettingsRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    儲存節點的評估設定（初始 DSL、入庫日期、原始售價、產品類型）。
+    所有登入用戶均可呼叫（不需要 admin 權限）。
+    """
+    node = get_node(node_id)
+    if not node:
+        raise HTTPException(status_code=404, detail=f"節點 {node_id} 不存在")
+    update_node_settings(
+        node_id=node_id,
+        initial_dsl=req.initial_dsl,
+        storage_date=req.storage_date,
+        base_price=req.base_price,
+        product=req.product,
+    )
+    # 同步更新 AI 快取中的 storage_days（讓下次自動推理使用新天數）
+    if node_id in ai_cache:
+        from datetime import date
+        try:
+            if req.storage_date:
+                sd = date.fromisoformat(req.storage_date)
+                new_days = float(max(0, (date.today() - sd).days))
+            else:
+                new_days = ai_cache[node_id].get("storage_days", 1.0)
+            ai_cache[node_id]["storage_days"] = new_days
+        except Exception:
+            pass
+    return {"message": f"節點 {node_id} 評估設定已儲存",
+            "initial_dsl": req.initial_dsl,
+            "storage_date": req.storage_date,
+            "base_price": req.base_price,
+            "product": req.product}
 
 
 @app.get("/api/nodes/{node_id}/predictions")

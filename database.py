@@ -258,12 +258,26 @@ def get_user(username: str):
     return dict(row) if row else None
 
 
+def _serialize_node(row: dict) -> dict:
+    """\u5c07節點資料中的 date/datetime 物件轉為字串，方便 JSON 序列化"""
+    from datetime import date as _date_type
+    d = dict(row)
+    # storage_date: date 物件轉為 'YYYY-MM-DD' 字串
+    if isinstance(d.get('storage_date'), _date_type):
+        d['storage_date'] = d['storage_date'].isoformat()
+    # created_at / updated_at: datetime 物件轉為 HKT 字串
+    for ts_col in ('created_at', 'updated_at'):
+        if d.get(ts_col) is not None and not isinstance(d[ts_col], str):
+            d[ts_col] = _to_hkt_str(d[ts_col])
+    return d
+
+
 def get_all_nodes():
     with get_db() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT * FROM nodes ORDER BY created_at")
         rows = cur.fetchall()
-    return [dict(r) for r in rows]
+    return [_serialize_node(r) for r in rows]
 
 
 def get_node(node_id: str):
@@ -271,7 +285,7 @@ def get_node(node_id: str):
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT * FROM nodes WHERE node_id=%s", (node_id,))
         row = cur.fetchone()
-    return dict(row) if row else None
+    return _serialize_node(row) if row else None
 
 
 def upsert_node(data: dict):
@@ -309,6 +323,38 @@ def delete_node(node_id: str):
         cur.execute("DELETE FROM predictions WHERE node_id=%s", (node_id,))
         cur.execute("DELETE FROM readings WHERE node_id=%s", (node_id,))
         cur.execute("DELETE FROM nodes WHERE node_id=%s", (node_id,))
+
+
+def update_node_settings(node_id: str, initial_dsl: float, storage_date,
+                          base_price: float, product: str):
+    """
+    只更新節點的評估設定欄位（初始 DSL、入庫日期、原始售價、產品類型），
+    不影響其他欄位（名稱、位置、MQTT 主題等）。
+    """
+    from datetime import date as _date
+    try:
+        if isinstance(storage_date, str) and storage_date:
+            sd = _date.fromisoformat(storage_date)
+        elif isinstance(storage_date, _date):
+            sd = storage_date
+        else:
+            sd = None
+        days_stored = float(max(0, (_date.today() - sd).days)) if sd else 1.0
+    except Exception:
+        sd = None
+        days_stored = 1.0
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("""
+            UPDATE nodes
+            SET initial_dsl  = %s,
+                storage_date = %s,
+                days_stored  = %s,
+                base_price   = %s,
+                product      = %s,
+                updated_at   = NOW()
+            WHERE node_id = %s
+        """, (initial_dsl, sd, days_stored, base_price, product, node_id))
 
 
 def insert_reading(node_id: str, temperature: float, humidity: float,
