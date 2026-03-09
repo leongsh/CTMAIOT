@@ -109,6 +109,9 @@ scaler = None
 # AI 推理結果快取：{node_id: {spoilage, label, color, timestamp, quality_data}}
 ai_cache: dict = {}
 
+# ai_cache 持久化路徑（與 SQLite DB 同目錄）
+AI_CACHE_DB = os.environ.get("DB_PATH", "./data/ctmaiot.db").replace("ctmaiot.db", "ai_cache.db")
+
 # 模型版本管理
 MODEL_BACKUP_DIR = "./model_versions"
 model_registry: dict = {
@@ -294,6 +297,9 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
     model_registry["current"]["inference_count"] += 1
     logger.info("AI inference [%s] done: spoilage=%.1f%% label=%s", node_id, spoilage, ai_label)
 
+    # 持久化到 DB
+    save_ai_cache_to_db(node_id, result)
+
     # 自動記錄到資料庫（每次推理都記錄）
     if quality_data:
         try:
@@ -340,6 +346,59 @@ def auto_ai_inference_loop():
 # ─── FastAPI 應用程式 ─────────────────────────────────────────────────────────
 app = FastAPI(title="AIoT Smart Shelf API", version="4.1.0")
 
+
+# ── ai_cache 持久化函數 ───────────────────────────────────────────────────────────────────────────────
+def _init_ai_cache_db():
+    """初始化 ai_cache 持久化資料庫"""
+    import json
+    os.makedirs(os.path.dirname(AI_CACHE_DB) if os.path.dirname(AI_CACHE_DB) else '.', exist_ok=True)
+    conn = sqlite3.connect(AI_CACHE_DB, check_same_thread=False)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ai_cache (
+            node_id TEXT PRIMARY KEY,
+            data    TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )
+    """)
+    conn.commit()
+    conn.close()
+    logger.info("ai_cache DB initialized: %s", AI_CACHE_DB)
+
+
+def save_ai_cache_to_db(node_id: str, result: dict):
+    """\u5c07單一節點的 ai_cache 寫入持久化 DB"""
+    import json
+    try:
+        conn = sqlite3.connect(AI_CACHE_DB, check_same_thread=False)
+        conn.execute(
+            "INSERT OR REPLACE INTO ai_cache (node_id, data, updated_at) VALUES (?, ?, ?)",
+            (node_id, json.dumps(result, ensure_ascii=False), datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.debug("save_ai_cache_to_db error: %s", e)
+
+
+def load_ai_cache_from_db():
+    """\u5f9e持久化 DB \u8f09入 ai_cache"""
+    import json
+    global ai_cache
+    try:
+        if not os.path.exists(AI_CACHE_DB):
+            return
+        conn = sqlite3.connect(AI_CACHE_DB, check_same_thread=False)
+        rows = conn.execute("SELECT node_id, data FROM ai_cache").fetchall()
+        conn.close()
+        for row in rows:
+            try:
+                ai_cache[row[0]] = json.loads(row[1])
+            except Exception:
+                pass
+        logger.info("Loaded %d ai_cache entries from DB", len(rows))
+    except Exception as e:
+        logger.warning("load_ai_cache_from_db error: %s", e)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -354,6 +413,11 @@ async def startup():
     # 初始化資料庫
     init_db()
     logger.info("Database initialized")
+
+    # 初始化 ai_cache 持久化 DB 並載入上次的推理結果
+    _init_ai_cache_db()
+    load_ai_cache_from_db()
+    logger.info("ai_cache loaded from persistent DB: %d entries", len(ai_cache))
 
     # 載入 AI 模型
     try:
@@ -874,7 +938,7 @@ async def calc_quality(req: QualityRequest):
         ai_color = "#ef4444"
         ai_label = freshness_label
 
-    ai_cache[req.node_id] = {
+    manual_result = {
         "spoilage":     ai_spoilage_sync,
         "ai_label":     ai_label,
         "ai_color":     ai_color,
@@ -883,6 +947,8 @@ async def calc_quality(req: QualityRequest):
         "storage_days": req.storage_days,
         "source":       "manual",   # 標記來源為手動評估
     }
+    ai_cache[req.node_id] = manual_result
+    save_ai_cache_to_db(req.node_id, manual_result)  # 持久化手動評估結果
     logger.info("ai_cache updated from manual assessment: node=%s Q=%.1f discount=%s%%",
                 req.node_id, data.get("quality_score", 0), data.get("discount_pct", 0))
 
@@ -974,9 +1040,8 @@ async def predict(req: PredictRequest):
             })
         except Exception as e:
             logger.warning("Save prediction failed: %s", e)
-
-    # ── 同步更新 ai_cache，讓電子報價牌即時反映最新完整推理結果 ─────────────
-    ai_cache[req.node_id] = {
+    # ── 同步更新 ai_cache，讓電子報價牌即時反映最新完整推理結果 ─────────────────
+    predict_result = {
         "spoilage":     spoilage,
         "ai_label":     ai_label,
         "ai_color":     ai_color,
@@ -985,6 +1050,8 @@ async def predict(req: PredictRequest):
         "storage_days": req.storage_time,
         "source":       "manual_predict",
     }
+    ai_cache[req.node_id] = predict_result
+    save_ai_cache_to_db(req.node_id, predict_result)  # 持久化到 DB
     logger.info("ai_cache updated from /api/predict: node=%s spoilage=%.1f Q=%.1f discount=%s%%",
                 req.node_id, spoilage, quality_data.get("quality_score", 0), quality_data.get("discount_pct", 0))
 

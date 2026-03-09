@@ -468,18 +468,31 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
       <!-- 地圖位置 -->
       <div class="modal-section-title">地圖位置</div>
       <div class="map-pick-hint full" id="map-pick-hint">
-        點擊地圖上任意位置可自動填入座標，或直接輸入經緯度
+        輸入地址後點擊搜尋，或直接點擊地圖選取位置
       </div>
-      <div class="coord-row">
-        <div>
-          <label class="modal-label">緯度 (Lat)</label>
-          <input class="modal-input" id="m-lat" type="number" step="0.0001" value="22.3193"/>
-        </div>
-        <div>
-          <label class="modal-label">經度 (Lng)</label>
-          <input class="modal-input" id="m-lng" type="number" step="0.0001" value="114.1694"/>
-        </div>
+      <!-- 地址搜尋 -->
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input class="modal-input" id="m-address-search" placeholder="輸入地址，例：旺角西洋菜街 100 號" style="flex:1;margin-bottom:0"/>
+        <button type="button" onclick="searchAddress()" style="background:rgba(59,130,246,.2);border:1px solid rgba(59,130,246,.4);color:#3b82f6;padding:8px 14px;border-radius:8px;cursor:pointer;white-space:nowrap;font-size:.85rem;transition:all .2s" onmouseover="this.style.background='rgba(59,130,246,.4)'" onmouseout="this.style.background='rgba(59,130,246,.2)'">搜尋</button>
       </div>
+      <!-- 搜尋結果下拉 -->
+      <div id="address-results" style="display:none;background:rgba(15,23,42,.95);border:1px solid rgba(59,130,246,.3);border-radius:8px;max-height:160px;overflow-y:auto;margin-bottom:10px"></div>
+      <!-- 已選地址顯示 -->
+      <div id="selected-address-display" style="display:none;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:.82rem;color:#10b981"></div>
+      <!-- 座標（收合顯示） -->
+      <details style="margin-bottom:4px">
+        <summary style="font-size:.8rem;color:#64748b;cursor:pointer;user-select:none;padding:4px 0">進階：手動輸入座標</summary>
+        <div class="coord-row" style="margin-top:8px">
+          <div>
+            <label class="modal-label">緯度 (Lat)</label>
+            <input class="modal-input" id="m-lat" type="number" step="0.000001" value="22.3193"/>
+          </div>
+          <div>
+            <label class="modal-label">經度 (Lng)</label>
+            <input class="modal-input" id="m-lng" type="number" step="0.000001" value="114.1694"/>
+          </div>
+        </div>
+      </details>
     </div>
     <div class="modal-actions">
       <button class="btn-modal-delete" id="btn-modal-delete" onclick="deleteNode()" style="display:none">刪除節點</button>
@@ -554,16 +567,77 @@ function initMap() {
   // 地圖點選：在 Modal 開啟時填入座標
   map.on('click', function(e) {
     if (document.getElementById('node-modal').classList.contains('active')) {
-      document.getElementById('m-lat').value = e.latlng.lat.toFixed(6);
-      document.getElementById('m-lng').value = e.latlng.lng.toFixed(6);
+      const lat = e.latlng.lat.toFixed(6);
+      const lng = e.latlng.lng.toFixed(6);
+      document.getElementById('m-lat').value = lat;
+      document.getElementById('m-lng').value = lng;
       document.getElementById('map-pick-hint').textContent =
         `已選取位置：${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
       document.getElementById('map-pick-hint').style.background = 'rgba(34,197,94,.1)';
       document.getElementById('map-pick-hint').style.borderColor = 'rgba(34,197,94,.3)';
       document.getElementById('map-pick-hint').style.color = '#22c55e';
+      // 顯示已選座標
+      const disp = document.getElementById('selected-address-display');
+      disp.style.display = 'block';
+      disp.textContent = `已選地圖位置：${lat}, ${lng}`;
+      document.getElementById('address-results').style.display = 'none';
     }
   });
 }
+
+// ── 地址搜尋（Nominatim）───────────────────────────────────────────────────────────────────────────────
+async function searchAddress() {
+  const query = document.getElementById('m-address-search').value.trim();
+  if (!query) return;
+  const resultsDiv = document.getElementById('address-results');
+  resultsDiv.style.display = 'block';
+  resultsDiv.innerHTML = '<div style="padding:10px 14px;color:#64748b;font-size:.82rem">搜尋中…</div>';
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&accept-language=zh-TW`;
+    const res = await fetch(url, {headers: {'Accept-Language': 'zh-TW,zh;q=0.9'}});
+    const data = await res.json();
+    if (!data.length) {
+      resultsDiv.innerHTML = '<div style="padding:10px 14px;color:#ef4444;font-size:.82rem">找不到相關地址，請嘗試更詳細的地址</div>';
+      return;
+    }
+    resultsDiv.innerHTML = data.map((item, i) => `
+      <div onclick="selectAddress(${item.lat}, ${item.lon}, '${item.display_name.replace(/'/g, '\\\'')}')" 
+           style="padding:10px 14px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);font-size:.82rem;color:#cbd5e1;transition:background .15s"
+           onmouseover="this.style.background='rgba(59,130,246,.15)'" onmouseout="this.style.background='transparent'">
+        <div style="font-weight:600;color:#e2e8f0;margin-bottom:2px">${item.display_name.split(',')[0]}</div>
+        <div style="color:#64748b;font-size:.75rem">${item.display_name}</div>
+      </div>
+    `).join('');
+  } catch(e) {
+    resultsDiv.innerHTML = '<div style="padding:10px 14px;color:#ef4444;font-size:.82rem">搜尋失敗，請檢查網路連線</div>';
+  }
+}
+
+function selectAddress(lat, lng, displayName) {
+  document.getElementById('m-lat').value = parseFloat(lat).toFixed(6);
+  document.getElementById('m-lng').value = parseFloat(lng).toFixed(6);
+  document.getElementById('address-results').style.display = 'none';
+  // 顯示已選地址
+  const disp = document.getElementById('selected-address-display');
+  disp.style.display = 'block';
+  disp.textContent = `已選：${displayName.split(',').slice(0,3).join(', ')}`;
+  // 更新提示
+  document.getElementById('map-pick-hint').textContent = `已選地址：${displayName.split(',')[0]}`;
+  document.getElementById('map-pick-hint').style.background = 'rgba(34,197,94,.1)';
+  document.getElementById('map-pick-hint').style.borderColor = 'rgba(34,197,94,.3)';
+  document.getElementById('map-pick-hint').style.color = '#22c55e';
+  // 地圖飛到選定位置
+  if (map) {
+    map.flyTo([parseFloat(lat), parseFloat(lng)], 17, {duration: 1});
+  }
+}
+
+// 搜尋框按 Enter 觸發搜尋
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.activeElement.id === 'm-address-search') {
+    searchAddress();
+  }
+});
 
 // ── 載入節點 ──────────────────────────────────────────────────────────────────
 async function loadNodes() {
@@ -755,11 +829,14 @@ function openNodeModal(nodeId) {
   const modal = document.getElementById('node-modal');
   const deleteBtn = document.getElementById('btn-modal-delete');
 
-  // 重置 map-pick-hint
-  document.getElementById('map-pick-hint').textContent = '點擊地圖上任意位置可自動填入座標，或直接輸入經緯度';
+  // 重置 map-pick-hint 和地址搜尋欄位
+  document.getElementById('map-pick-hint').textContent = '輸入地址後點擊搜尋，或直接點擊地圖選取位置';
   document.getElementById('map-pick-hint').style.background = 'rgba(59,130,246,.1)';
   document.getElementById('map-pick-hint').style.borderColor = 'rgba(59,130,246,.2)';
   document.getElementById('map-pick-hint').style.color = '#3b82f6';
+  document.getElementById('m-address-search').value = '';
+  document.getElementById('address-results').style.display = 'none';
+  document.getElementById('selected-address-display').style.display = 'none';
 
   if (nodeId) {
     // 編輯模式
