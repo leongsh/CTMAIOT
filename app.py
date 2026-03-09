@@ -104,11 +104,11 @@ logger.info("Using device: %s", DEVICE)
 # ─── 全域狀態 ────────────────────────────────────────────────────────────────
 # 多節點感測器快取：{node_id: {temperature, humidity, timestamp}}
 sensor_cache: dict = {
-    "NODE_ISM_001": {"temperature": None, "humidity": None, "timestamp": None}
+    "A01": {"temperature": None, "humidity": None, "timestamp": None}
 }
 
 # MQTT 主題 → node_id 的記憶體快取（避免每次收到訊息都查 DB）
-# 格式：{"m5go/ISM/env": "NODE_ISM_001", ...}
+# 格式：{"m5go/ISM/env": "A01", ...}
 _mqtt_topic_map: dict = {}
 model_ai: HybridModel = None
 scaler = None
@@ -167,7 +167,7 @@ def on_message(client, userdata, msg):
         hum  = float(data.get("hum",  data.get("humidity", 0)))
 
         # 從記憶體快取查找對應 node_id（不查 DB，避免 1.5 秒延遲）
-        node_id = _mqtt_topic_map.get(msg.topic, "NODE_ISM_001")
+        node_id = _mqtt_topic_map.get(msg.topic, "A01")
 
         sensor_cache[node_id] = {
             "temperature": temp,
@@ -520,9 +520,22 @@ async def health_check():
 @app.get("/api/mqtt/status")
 async def mqtt_status_api():
     """返回 MQTT 連線狀態與最新感測器數據（免登入）"""
+    # 每次訪問自動刷新 topic map，確保資料庫變更能即時生效
+    _refresh_mqtt_topic_map()
     return {
         "mqtt": mqtt_status,
         "sensor_cache": sensor_cache,
+        "topic_map": _mqtt_topic_map,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }
+
+
+@app.post("/api/mqtt/refresh")
+async def mqtt_refresh_api(current_user: dict = Depends(get_current_user)):
+    """手動刷新 MQTT topic map（需登入）"""
+    _refresh_mqtt_topic_map()
+    return {
+        "status": "refreshed",
         "topic_map": _mqtt_topic_map,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
@@ -884,14 +897,14 @@ async def rollback_model(admin: dict = Depends(require_admin)):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @app.get("/api/sensor")
-async def get_sensor(node_id: str = "NODE_ISM_001"):
+async def get_sensor(node_id: str = "A01"):
     return JSONResponse(content=sensor_cache.get(node_id, {
         "temperature": None, "humidity": None, "timestamp": None
     }))
 
 
 @app.get("/api/image")
-async def proxy_image(node_id: str = "NODE_ISM_001"):
+async def proxy_image(node_id: str = "A01"):
     # 取得節點相機 URL
     node = get_node(node_id)
     cam_url = (node.get("camera_url") or CAMERA_URL) if node else CAMERA_URL
