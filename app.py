@@ -1019,6 +1019,65 @@ async def predict(req: PredictRequest):
 # 公開報價牌 API（免登入）
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@app.get("/api/display/all")
+async def display_all_nodes_v2():
+    """
+    公開銷售版面 API — 免登入
+    回傳所有節點的最新品質評估與定價資訊，供銷售排行版面使用
+    """
+    nodes_list = get_all_nodes()
+    result = []
+
+    for node in nodes_list:
+        node_id = node["node_id"]
+        sensor = sensor_cache.get(node_id, {})
+        ai_result = ai_cache.get(node_id)
+
+        quality_data = None
+        ai_spoilage_val = None
+        ai_label_val = None
+        ai_color_val = None
+        ai_infer_ts = None
+        source = None
+
+        if ai_result:
+            quality_data    = ai_result.get("quality_data")
+            ai_spoilage_val = ai_result.get("spoilage")
+            ai_label_val    = ai_result.get("ai_label")
+            ai_color_val    = ai_result.get("ai_color")
+            ai_infer_ts     = ai_result.get("timestamp")
+            source          = ai_result.get("source", "auto")
+
+        product_type = node.get("product") or node.get("product_type", "banana")
+        product_names = {"banana": "香蕉", "apple": "蘋果", "tomato": "番茄", "lettuce": "萵苣"}
+
+        result.append({
+            "node_id":       node_id,
+            "name":          node.get("name"),
+            "location_name": node.get("location_name"),
+            "status":        node.get("status", "active"),
+            "product":       product_type,
+            "product_name":  product_names.get(product_type, product_type),
+            "base_price":    node.get("base_price", 100.0),
+            "sensor": {
+                "temperature": sensor.get("temperature"),
+                "humidity":    sensor.get("humidity"),
+                "online":      sensor.get("temperature") is not None,
+            },
+            "ai": {
+                "spoilage":    ai_spoilage_val,
+                "label":       ai_label_val,
+                "color":       ai_color_val,
+                "inferred_at": ai_infer_ts,
+                "source":      source,
+            },
+            "quality": quality_data,
+            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        })
+
+    return {"nodes": result, "total": len(result), "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+
 @app.get("/api/display/{node_id}")
 async def display_data(node_id: str):
     """
@@ -1107,65 +1166,6 @@ async def display_data(node_id: str):
         "readings_history":  readings,
         "updated_at":        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
-
-
-@app.get("/api/display/all")
-async def display_all_nodes():
-    """
-    公開銷售版面 API — 免登入
-    回傳所有節點的最新品質評估與定價資訊，供銷售排行版面使用
-    """
-    nodes_list = get_all_nodes()
-    result = []
-
-    for node in nodes_list:
-        node_id = node["node_id"]
-        sensor = sensor_cache.get(node_id, {})
-        ai_result = ai_cache.get(node_id)
-
-        quality_data = None
-        ai_spoilage_val = None
-        ai_label_val = None
-        ai_color_val = None
-        ai_infer_ts = None
-        source = None
-
-        if ai_result:
-            quality_data    = ai_result.get("quality_data")
-            ai_spoilage_val = ai_result.get("spoilage")
-            ai_label_val    = ai_result.get("ai_label")
-            ai_color_val    = ai_result.get("ai_color")
-            ai_infer_ts     = ai_result.get("timestamp")
-            source          = ai_result.get("source", "auto")
-
-        product_type = node.get("product") or node.get("product_type", "banana")
-        product_names = {"banana": "香蕉", "apple": "蘋果", "tomato": "番茄", "lettuce": "萵苣"}
-
-        result.append({
-            "node_id":       node_id,
-            "name":          node.get("name"),
-            "location_name": node.get("location_name"),
-            "status":        node.get("status", "active"),
-            "product":       product_type,
-            "product_name":  product_names.get(product_type, product_type),
-            "base_price":    node.get("base_price", 100.0),
-            "sensor": {
-                "temperature": sensor.get("temperature"),
-                "humidity":    sensor.get("humidity"),
-                "online":      sensor.get("temperature") is not None,
-            },
-            "ai": {
-                "spoilage":    ai_spoilage_val,
-                "label":       ai_label_val,
-                "color":       ai_color_val,
-                "inferred_at": ai_infer_ts,
-                "source":      source,
-            },
-            "quality": quality_data,
-            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        })
-
-    return {"nodes": result, "total": len(result), "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 
 @app.get("/api/ai-status")
