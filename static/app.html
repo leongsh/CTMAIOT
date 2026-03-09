@@ -523,7 +523,7 @@ let currentUser = JSON.parse(localStorage.getItem('ctma_user') || '{}');
 let nodes = [];
 let selectedNodeId = null;
 let manualMode = false;
-let map, markers = {};
+let leafletMap, markers = {};
 let qualityChart = null, sensorChart = null;
 let editingNodeId = null;  // 正在編輯的節點 ID（null = 新增）
 let mapPickMode = false;   // 是否在地圖點選座標模式
@@ -580,7 +580,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ── 地圖初始化 ────────────────────────────────────────────────────────────────
 function initMap() {
-  map = L.map('map', {
+  leafletMap = L.map('map', {
     center: [22.3193, 114.1694],
     zoom: 15,
     zoomControl: true,
@@ -590,10 +590,10 @@ function initMap() {
     attribution: '© OpenStreetMap contributors © CARTO',
     subdomains: 'abcd',
     maxZoom: 20,
-  }).addTo(map);
+  }).addTo(leafletMap);
 
   // 地圖點選：在 Modal 開啟時填入座標
-  map.on('click', function(e) {
+  leafletMap.on('click', function(e) {
     if (document.getElementById('node-modal').classList.contains('active')) {
       const lat = e.latlng.lat.toFixed(6);
       const lng = e.latlng.lng.toFixed(6);
@@ -655,8 +655,8 @@ function selectAddress(lat, lng, displayName) {
   document.getElementById('map-pick-hint').style.borderColor = 'rgba(34,197,94,.3)';
   document.getElementById('map-pick-hint').style.color = '#22c55e';
   // 地圖飛到選定位置
-  if (map) {
-    map.flyTo([parseFloat(lat), parseFloat(lng)], 17, {duration: 1});
+  if (leafletMap) {
+    leafletMap.flyTo([parseFloat(lat), parseFloat(lng)], 17, {duration: 1});
   }
 }
 
@@ -737,7 +737,7 @@ function renderNodeList() {
 }
 
 function renderMapMarkers() {
-  Object.values(markers).forEach(m => map.removeLayer(m));
+  Object.values(markers).forEach(m => leafletMap.removeLayer(m));
   markers = {};
 
   nodes.forEach(n => {
@@ -759,7 +759,7 @@ function renderMapMarkers() {
     const productName = {banana:'香蕉',apple:'蘋果',tomato:'番茄',lettuce:'萵苣'}[n.product] || n.product;
 
     const marker = L.marker([n.lat, n.lng], {icon})
-      .addTo(map)
+      .addTo(leafletMap)
       .bindPopup(`
         <div class="popup-title">${n.name}</div>
         <div class="popup-row"><span>位置</span><span class="popup-val">${n.location_name || '--'}</span></div>
@@ -785,7 +785,7 @@ function renderMapMarkers() {
 
   if (nodes.length > 0) {
     const latlngs = nodes.map(n => [n.lat, n.lng]);
-    try { map.fitBounds(latlngs, {padding: [40, 40], maxZoom: 17}); } catch(e) {}
+    try { leafletMap.fitBounds(latlngs, {padding: [40, 40], maxZoom: 17}); } catch(e) {}
   }
 }
 
@@ -819,7 +819,7 @@ function selectNode(nodeId) {
 
   const node = nodes.find(n => n.node_id === nodeId);
   if (node) {
-    map.flyTo([node.lat, node.lng], 17, {duration: 1});
+    leafletMap.flyTo([node.lat, node.lng], 17, {duration: 1});
     if (markers[nodeId]) markers[nodeId].openPopup();
     document.getElementById('assess-product').value = node.product || 'banana';
     document.getElementById('assess-initial-dsl').value = node.initial_dsl || 10;
@@ -911,9 +911,14 @@ function openNodeModal(nodeId) {
     document.getElementById('m-camera-url').value = '';
     document.getElementById('m-mqtt-topic').value = '';
     // 使用地圖中心作為預設座標
-    const center = map.getCenter();
-    document.getElementById('m-lat').value = center.lat.toFixed(6);
-    document.getElementById('m-lng').value = center.lng.toFixed(6);
+    try {
+      const center = leafletMap ? leafletMap.getCenter() : {lat: 22.3193, lng: 114.1694};
+      document.getElementById('m-lat').value = center.lat.toFixed(6);
+      document.getElementById('m-lng').value = center.lng.toFixed(6);
+    } catch(e) {
+      document.getElementById('m-lat').value = '22.319300';
+      document.getElementById('m-lng').value = '114.169400';
+    }
     deleteBtn.style.display = 'none';
   }
 
@@ -975,8 +980,8 @@ async function saveNode() {
     showToast(editingNodeId ? `節點「${name}」已更新` : `節點「${name}」已建立`, 'success');
 
     // 飛到新節點位置
-    if (map && payload.lat && payload.lng) {
-      map.flyTo([payload.lat, payload.lng], 15, {duration: 1.2});
+    if (leafletMap && payload.lat && payload.lng) {
+      leafletMap.flyTo([payload.lat, payload.lng], 15, {duration: 1.2});
     }
     if (markers[nodeId]) markers[nodeId].openPopup();
   } catch(e) {
