@@ -16,8 +16,23 @@ import hashlib
 import os
 import threading
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from contextlib import contextmanager
+
+# 香港時區 UTC+8
+_HKT = timezone(timedelta(hours=8))
+_UTC = timezone.utc
+
+def _to_hkt_str(dt) -> str:
+    """將 datetime 物件轉換為 UTC+8 格式化字串"""
+    if dt is None:
+        return None
+    if isinstance(dt, str):
+        return dt  # 已是字串，不處理
+    # 如果沒有時區資訊，假設為 UTC
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=_UTC)
+    return dt.astimezone(_HKT).strftime("%Y-%m-%d %H:%M:%S")
 
 logger = logging.getLogger(__name__)
 
@@ -313,7 +328,12 @@ def get_node_readings(node_id: str, limit: int = 100):
             ORDER BY recorded_at DESC LIMIT %s
         """, (node_id, limit))
         rows = cur.fetchall()
-    return [dict(r) for r in rows]
+    result = []
+    for r in rows:
+        d = dict(r)
+        d['recorded_at'] = _to_hkt_str(d.get('recorded_at'))
+        result.append(d)
+    return result
 
 
 def get_node_predictions(node_id: str, limit: int = 50):
@@ -324,7 +344,12 @@ def get_node_predictions(node_id: str, limit: int = 50):
             ORDER BY recorded_at DESC LIMIT %s
         """, (node_id, limit))
         rows = cur.fetchall()
-    return [dict(r) for r in rows]
+    result = []
+    for r in rows:
+        d = dict(r)
+        d['recorded_at'] = _to_hkt_str(d.get('recorded_at'))
+        result.append(d)
+    return result
 
 
 def get_dashboard_stats():

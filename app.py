@@ -36,8 +36,15 @@ import os
 import hashlib
 import psycopg2
 import psycopg2.extras
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Optional
+
+# 香港時區 UTC+8
+_HKT = timezone(timedelta(hours=8))
+
+def now_hkt() -> str:
+    """返回 UTC+8 香港時間的格式化字串"""
+    return datetime.now(_HKT).strftime("%Y-%m-%d %H:%M:%S")
 
 import requests
 import joblib
@@ -162,7 +169,7 @@ def on_message(client, userdata, msg):
     global sensor_cache
     try:
         data = json.loads(msg.payload.decode())
-        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ts = now_hkt()
         temp = float(data.get("temp", data.get("temperature", 0)))
         hum  = float(data.get("hum",  data.get("humidity", 0)))
 
@@ -201,7 +208,7 @@ mqtt_status = {
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         mqtt_status["connected"] = True
-        mqtt_status["last_connect"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        mqtt_status["last_connect"] = now_hkt()
         logger.info("MQTT connected (id=%s), subscribing to %s", MQTT_CLIENT_ID, MQTT_TOPIC)
         client.subscribe(MQTT_TOPIC)
         # 更新主題對應表並訂閱所有節點主題
@@ -328,7 +335,7 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
         logger.warning("AI inference [%s] quality calc error: %s", node_id, e)
         quality_data = None
 
-    ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ts = now_hkt()
     result = {
         "spoilage":              round(spoilage, 2),
         "ai_label":              ai_label,
@@ -514,7 +521,7 @@ def _keep_alive_loop():
 @app.get("/api/health")
 async def health_check():
     """健康檢查端點（Keep-Alive 使用）"""
-    return {"status": "ok", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    return {"status": "ok", "timestamp": now_hkt()}
 
 
 @app.get("/api/mqtt/status")
@@ -526,7 +533,7 @@ async def mqtt_status_api():
         "mqtt": mqtt_status,
         "sensor_cache": sensor_cache,
         "topic_map": _mqtt_topic_map,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_hkt(),
     }
 
 
@@ -537,7 +544,7 @@ async def mqtt_refresh_api(current_user: dict = Depends(get_current_user)):
     return {
         "status": "refreshed",
         "topic_map": _mqtt_topic_map,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_hkt(),
     }
 
 
@@ -787,7 +794,7 @@ async def upload_model_form(
     if model_file is None and scaler_file is None:
         raise HTTPException(status_code=400, detail="請至少上傳 model_file (.pth) 或 scaler_file (.pkl) 其中一個")
 
-    ts_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts_str = datetime.now(_HKT).strftime("%Y%m%d_%H%M%S")
     new_version = version.strip() or f"v-{ts_str}"
     new_model_path  = model_registry["current"]["model_path"]
     new_scaler_path = model_registry["current"]["scaler_path"]
@@ -834,7 +841,7 @@ async def upload_model_form(
         "model_path":      new_model_path,
         "scaler_path":     new_scaler_path,
         "version":         new_version,
-        "uploaded_at":     datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "uploaded_at":     now_hkt(),
         "uploaded_by":     admin["username"],
         "description":     description or f"上傳於 {ts_str}",
         "inference_count": 0,
@@ -1044,7 +1051,7 @@ async def calc_quality(req: QualityRequest):
         "spoilage":     ai_spoilage_sync,
         "ai_label":     ai_label,
         "ai_color":     ai_color,
-        "timestamp":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp":    now_hkt(),
         "quality_data": data,
         "storage_days": req.storage_days,
         "source":       "manual",   # 標記來源為手動評估
@@ -1151,7 +1158,7 @@ async def predict(req: PredictRequest):
         "spoilage":     spoilage,
         "ai_label":     ai_label,
         "ai_color":     ai_color,
-        "timestamp":    datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp":    now_hkt(),
         "quality_data": quality_data,
         "storage_days": req.storage_time,
         "source":       "manual_predict",
@@ -1247,10 +1254,10 @@ async def display_all_nodes_v2():
                 "source":      source,
             },
             "quality": quality_data,
-            "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_at": now_hkt(),
         })
 
-    return {"nodes": result, "total": len(result), "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    return {"nodes": result, "total": len(result), "updated_at": now_hkt()}
 
 
 @app.get("/api/display/{node_id}")
@@ -1339,7 +1346,7 @@ async def display_data(node_id: str):
         "quality":           quality_data,
         "latest_prediction": latest,
         "readings_history":  readings,
-        "updated_at":        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "updated_at":        now_hkt(),
     }
 
 
