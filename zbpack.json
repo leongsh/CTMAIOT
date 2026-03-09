@@ -1,0 +1,4 @@
+{
+  "build_command": "pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt",
+  "start_command": "uvicorn app:app --host 0.0.0.0 --port 8080"
+}
