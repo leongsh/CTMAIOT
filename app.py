@@ -170,8 +170,11 @@ def on_message(client, userdata, msg):
     try:
         data = json.loads(msg.payload.decode())
         ts = now_hkt()
-        temp = float(data.get("temp", data.get("temperature", 0)))
-        hum  = float(data.get("hum",  data.get("humidity", 0)))
+        temp  = float(data.get("temp", data.get("temperature", 0)))
+        hum   = float(data.get("hum",  data.get("humidity", 0)))
+        light = float(data.get("light", data.get("light_lux", 375)))
+        pres  = float(data.get("pres",  data.get("pressure", 1013.0)))
+        air   = float(data.get("air_velocity", 0.22))
 
         # 從記憶體快取查找對應 node_id（不查 DB，避免 1.5 秒延遲）
         node_id = _mqtt_topic_map.get(msg.topic, "A01")
@@ -179,11 +182,14 @@ def on_message(client, userdata, msg):
         sensor_cache[node_id] = {
             "temperature": temp,
             "humidity":    hum,
+            "light_lux":   light,
+            "pressure":    pres,
+            "air_velocity": air,
             "timestamp":   ts,
         }
         # 自動記錄到資料庫（使用連線池，快速完成）
         try:
-            insert_reading(node_id, temp, hum)
+            insert_reading(node_id, temp, hum, light, air)
         except Exception as e:
             logger.debug("Insert reading error: %s", e)
 
@@ -1340,8 +1346,9 @@ async def display_data(node_id: str):
         "sensor": {
             "temperature":  temperature,
             "humidity":     humidity,
-            "light_lux":    node.get("light_lux", 375),
-            "air_velocity": node.get("air_velocity", 0.22),
+            "light_lux":    sensor.get("light_lux") if sensor.get("light_lux") is not None else node.get("light_lux", 375),
+            "air_velocity": sensor.get("air_velocity") if sensor.get("air_velocity") is not None else node.get("air_velocity", 0.22),
+            "pressure":     sensor.get("pressure"),
             "timestamp":    sensor_ts,
             "online":       temperature is not None,
         },
@@ -1385,11 +1392,15 @@ async def display_sensor_only(node_id: str):
     """輕量感測器快照 API（免登入，用於高頻輪詢）"""
     sensor = sensor_cache.get(node_id, {})
     node   = get_node(node_id)
+    # 優先使用 MQTT 即時數據，如果尚未收到則用節點設定的預設值
+    light_val = sensor.get("light_lux")
+    air_val   = sensor.get("air_velocity")
     return {
         "temperature":  sensor.get("temperature"),
         "humidity":     sensor.get("humidity"),
-        "light_lux":    node.get("light_lux", 375) if node else 375,
-        "air_velocity": node.get("air_velocity", 0.22) if node else 0.22,
+        "light_lux":    light_val if light_val is not None else (node.get("light_lux", 375) if node else 375),
+        "air_velocity": air_val   if air_val   is not None else (node.get("air_velocity", 0.22) if node else 0.22),
+        "pressure":     sensor.get("pressure"),
         "timestamp":    sensor.get("timestamp"),
         "online":       sensor.get("temperature") is not None,
     }
