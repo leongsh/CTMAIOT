@@ -211,6 +211,9 @@ def upsert_node(data: dict):
 def delete_node(node_id: str):
     conn = get_db()
     cur = conn.cursor()
+    # 先刪除外鍵關聯的子記錄，再刪除節點
+    cur.execute("DELETE FROM predictions WHERE node_id=%s", (node_id,))
+    cur.execute("DELETE FROM readings WHERE node_id=%s", (node_id,))
     cur.execute("DELETE FROM nodes WHERE node_id=%s", (node_id,))
     conn.commit()
     conn.close()
