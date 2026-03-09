@@ -32,95 +32,24 @@
     flex-direction:column;
   }
 
-  /* ── 頂部標題欄 ── */
-  .topbar-price-block{
-    display:flex;
-    align-items:center;
-    gap:18px;
-    background:rgba(255,255,255,.04);
-    border:1px solid var(--border);
-    border-radius:12px;
-    padding:8px 20px;
-  }
-  .topbar-price-label{
-    font-size:.6rem;
-    letter-spacing:1.2px;
-    text-transform:uppercase;
-    color:var(--muted);
-    margin-bottom:2px;
-  }
-  .topbar-price-base{
-    font-size:.7rem;
-    color:var(--muted);
-    text-decoration:line-through;
-  }
-  .topbar-price-main{
-    font-size:2rem;
-    font-weight:900;
-    color:#fff;
-    line-height:1;
-    display:flex;
-    align-items:flex-start;
-    gap:3px;
-  }
-  .topbar-price-currency{
-    font-size:1rem;
-    color:var(--muted);
-    margin-top:4px;
-  }
-  .topbar-price-unit{
-    font-size:.75rem;
-    color:var(--muted);
-    margin-top:10px;
-  }
-  .topbar-discount-badge{
-    display:inline-flex;
-    align-items:center;
-    gap:4px;
-    font-size:.72rem;
-    font-weight:700;
-    padding:4px 12px;
-    border-radius:999px;
-    background:rgba(34,197,94,.15);
-    color:var(--green);
-    border:1px solid rgba(34,197,94,.3);
-    white-space:nowrap;
-  }
-  .topbar-discount-badge.has-discount{
-    background:rgba(239,68,68,.15);
-    color:var(--red);
-    border-color:rgba(239,68,68,.3);
-  }
-  .topbar-price-reason{
-    font-size:.62rem;
-    color:var(--muted);
-    margin-top:3px;
-    max-width:180px;
-    line-height:1.3;
-  }
+  /* ── 頂部標題欄（精簡版）── */
   .topbar{
     background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
     border-bottom:1px solid var(--border);
-    padding:14px 28px;
+    padding:10px 24px;
     display:flex;
     align-items:center;
     justify-content:space-between;
     flex-shrink:0;
   }
-  .topbar-left{display:flex;align-items:center;gap:12px}
-  .topbar-logo{font-size:1.5rem}
-  .topbar-title{
-    font-size:1.1rem;
-    font-weight:700;
-    letter-spacing:.5px;
-    color:#fff;
-  }
-  .topbar-sub{font-size:.72rem;color:var(--muted);margin-top:2px}
-  .topbar-right{display:flex;align-items:center;gap:16px}
+  .topbar-left{display:flex;align-items:center;gap:10px}
+  .topbar-logo{font-size:1.4rem}
+  .topbar-title{font-size:1rem;font-weight:700;color:#fff}
+  .topbar-sub{font-size:.68rem;color:var(--muted);margin-top:1px}
+  .topbar-right{display:flex;align-items:center;gap:14px}
   .status-dot{
     width:9px;height:9px;border-radius:50%;
-    background:var(--green);
-    box-shadow:0 0 8px var(--green);
+    background:var(--green);box-shadow:0 0 8px var(--green);
     animation:pulse 2s infinite;
   }
   .status-dot.offline{background:var(--red);box-shadow:0 0 8px var(--red);animation:none}
@@ -128,287 +57,287 @@
   .clock{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
   .update-badge{
     font-size:.65rem;color:var(--muted);
-    background:rgba(255,255,255,.05);
-    border:1px solid var(--border);
+    background:rgba(255,255,255,.05);border:1px solid var(--border);
     border-radius:999px;padding:2px 10px;
   }
 
-  /* ── 主體 ── */
+  /* ── 主體佈局 ── */
   .main{
     flex:1;
     display:grid;
-    grid-template-columns:320px 1fr;
-    grid-template-rows:auto 1fr;
-    gap:16px;
-    padding:16px 20px;
+    grid-template-rows:auto 1fr auto;
+    grid-template-columns:1fr;
+    gap:0;
   }
 
-  /* ── 卡片 ── */
-  .card{
-    background:var(--card);
-    border:1px solid var(--border);
-    border-radius:14px;
-    padding:20px;
-  }
-  .card-title{
-    font-size:.65rem;
-    font-weight:700;
-    letter-spacing:1.5px;
-    text-transform:uppercase;
-    color:var(--muted);
-    margin-bottom:14px;
+  /* ── 價格主體區（最大最顯眼）── */
+  .price-hero{
+    background:linear-gradient(180deg,#0f172a 0%,#0a0e1a 100%);
+    border-bottom:1px solid var(--border);
+    padding:28px 40px 24px;
     display:flex;
     align-items:center;
-    gap:6px;
+    justify-content:space-between;
+    gap:32px;
   }
-  .card-title span{font-size:.85rem}
-
-  /* ── 左欄：品質儀表 ── */
-  .left-col{
-    grid-row:1/3;
+  .price-hero-left{
     display:flex;
     flex-direction:column;
-    gap:14px;
-  }
-
-  /* 品質圓形儀表 */
-  .gauge-card{text-align:center;padding:24px 20px}
-  .gauge-wrap{position:relative;width:180px;height:180px;margin:0 auto 16px}
-  canvas#gaugeChart{width:180px!important;height:180px!important}
-  .gauge-center{
-    position:absolute;top:50%;left:50%;
-    transform:translate(-50%,-50%);
-    text-align:center;
-    pointer-events:none;
-  }
-  .gauge-score{
-    font-size:2.8rem;
-    font-weight:800;
-    line-height:1;
-    color:#fff;
-  }
-  .gauge-label{font-size:.7rem;color:var(--muted);margin-top:4px}
-  .freshness-badge{
-    display:inline-block;
-    font-size:.8rem;
-    font-weight:700;
-    padding:5px 18px;
-    border-radius:999px;
-    margin-bottom:10px;
-  }
-  .dsl-row{
-    display:flex;
-    justify-content:space-around;
-    margin-top:8px;
-  }
-  .dsl-item{text-align:center}
-  .dsl-val{font-size:1.4rem;font-weight:700;color:var(--cyan)}
-  .dsl-key{font-size:.65rem;color:var(--muted);margin-top:2px}
-
-  /* 價格卡 */
-  .price-card{padding:20px 24px}
-  .price-base{
-    font-size:.75rem;color:var(--muted);
-    text-decoration:line-through;
-    margin-bottom:4px;
-  }
-  .price-main{
-    font-size:3rem;
-    font-weight:900;
-    line-height:1;
-    color:#fff;
-    display:flex;
     align-items:flex-start;
     gap:6px;
+    flex:1;
   }
-  .price-unit{font-size:1.1rem;color:var(--muted);margin-top:10px}
-  .price-currency{font-size:1.6rem;color:var(--muted);margin-top:6px}
-  .discount-badge{
-    display:inline-flex;
+  .price-hero-product{
+    display:flex;
     align-items:center;
-    gap:6px;
-    margin-top:10px;
+    gap:10px;
+    margin-bottom:4px;
+  }
+  .price-hero-product-name{
+    font-size:1.4rem;
+    font-weight:700;
+    color:#fff;
+  }
+  .freshness-badge{
+    display:inline-block;
     font-size:.78rem;
     font-weight:700;
-    padding:5px 14px;
+    padding:4px 14px;
     border-radius:999px;
     background:rgba(34,197,94,.15);
     color:var(--green);
     border:1px solid rgba(34,197,94,.3);
   }
-  .discount-badge.has-discount{
-    background:rgba(239,68,68,.15);
-    color:var(--red);
-    border-color:rgba(239,68,68,.3);
+  .price-hero-label{
+    font-size:.6rem;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:2px;
   }
-  .discount-reason{
-    font-size:.68rem;color:var(--muted);
-    margin-top:8px;line-height:1.5;
+  .price-hero-base{
+    font-size:.85rem;
+    color:var(--muted);
+    text-decoration:line-through;
+  }
+  .price-hero-main{
+    display:flex;
+    align-items:flex-start;
+    gap:6px;
+    line-height:1;
+  }
+  .price-hero-currency{
+    font-size:2.8rem;
+    font-weight:900;
+    color:var(--muted);
+    margin-top:10px;
+  }
+  .price-hero-value{
+    font-size:7rem;
+    font-weight:900;
+    color:#fff;
+    line-height:1;
+    letter-spacing:-2px;
+    text-shadow:0 0 40px rgba(255,255,255,.15);
+  }
+  .price-hero-unit{
+    font-size:1.4rem;
+    color:var(--muted);
+    margin-top:44px;
+    font-weight:600;
+  }
+  .price-hero-discount{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:10px;
+    font-size:1rem;
+    font-weight:700;
+    padding:7px 20px;
+    border-radius:999px;
+    background:rgba(34,197,94,.15);
+    color:var(--green);
+    border:1px solid rgba(34,197,94,.3);
+  }
+  .price-hero-discount.has-discount{
+    background:rgba(239,68,68,.2);
+    color:#ff6b6b;
+    border-color:rgba(239,68,68,.4);
+    font-size:1.1rem;
+    padding:8px 24px;
+    box-shadow:0 0 20px rgba(239,68,68,.15);
+  }
+  .price-hero-reason{
+    font-size:.75rem;
+    color:var(--muted);
+    margin-top:6px;
+    line-height:1.4;
   }
 
-  /* ── 右欄：感測器 + 圖表 ── */
-  .right-col{
+  /* 右側：品質儀表 + DSL */
+  .price-hero-right{
     display:flex;
     flex-direction:column;
-    gap:14px;
+    align-items:center;
+    gap:12px;
+    min-width:200px;
+  }
+  .gauge-wrap{position:relative;width:160px;height:160px}
+  canvas#gaugeChart{width:160px!important;height:160px!important}
+  .gauge-center{
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    text-align:center;pointer-events:none;
+  }
+  .gauge-score{font-size:2.4rem;font-weight:800;line-height:1;color:#fff}
+  .gauge-label{font-size:.65rem;color:var(--muted);margin-top:3px}
+  .dsl-row{
+    display:flex;justify-content:space-around;
+    width:100%;gap:8px;
+  }
+  .dsl-item{
+    text-align:center;
+    background:var(--card2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:8px 12px;
+    flex:1;
+  }
+  .dsl-val{font-size:1.3rem;font-weight:700;color:var(--cyan)}
+  .dsl-key{font-size:.58rem;color:var(--muted);margin-top:2px;line-height:1.3}
+
+  /* ── 下方輔助區（感測器 + AI + 折扣表）── */
+  .info-row{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:12px;
+    padding:14px 20px;
+    border-bottom:1px solid var(--border);
   }
 
-  /* 感測器四格 */
+  /* 卡片 */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+  }
+  .card-title{
+    font-size:.6rem;
+    font-weight:700;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:12px;
+    display:flex;align-items:center;gap:6px;
+  }
+
+  /* 感測器格 */
   .sensor-grid{
     display:grid;
     grid-template-columns:repeat(3,1fr);
-    gap:12px;
+    gap:10px;
   }
   .sensor-card{
     background:var(--card2);
     border:1px solid var(--border);
-    border-radius:12px;
-    padding:16px;
+    border-radius:10px;
+    padding:12px;
     text-align:center;
-    position:relative;
-    overflow:hidden;
+    position:relative;overflow:hidden;
   }
   .sensor-card::before{
-    content:'';
-    position:absolute;top:0;left:0;right:0;height:3px;
-    border-radius:12px 12px 0 0;
+    content:'';position:absolute;top:0;left:0;right:0;height:3px;
+    border-radius:10px 10px 0 0;
   }
   .sensor-card.temp::before{background:linear-gradient(90deg,#f97316,#ef4444)}
   .sensor-card.hum::before{background:linear-gradient(90deg,#06b6d4,#3b82f6)}
   .sensor-card.light::before{background:linear-gradient(90deg,#eab308,#f97316)}
-  .sensor-card.air::before{background:linear-gradient(90deg,#a855f7,#06b6d4)}
-  .sensor-icon{font-size:1.6rem;margin-bottom:8px}
+  .sensor-icon{font-size:1.3rem;margin-bottom:5px}
+  .sensor-val{font-size:1.6rem;font-weight:800;line-height:1;color:#fff}
+  .sensor-unit{font-size:.65rem;color:var(--muted);margin-left:2px}
+  .sensor-name{font-size:.58rem;color:var(--muted);margin-top:4px;letter-spacing:.5px}
+  .sensor-mini-chart{margin-top:6px;height:32px}
 
   /* 光照等級指示器 */
-  .light-scale{
-    margin-top:8px;
-    width:100%;
-  }
+  .light-scale{margin-top:6px;width:100%}
   .light-scale-bar{
-    position:relative;
-    height:8px;
-    border-radius:4px;
+    position:relative;height:6px;border-radius:3px;
     background:linear-gradient(90deg,
-      #1e293b 0%,
-      #334155 5%,
-      #1d4ed8 15%,
-      #0ea5e9 30%,
-      #eab308 50%,
-      #f97316 70%,
-      #ef4444 100%);
+      #1e293b 0%,#334155 5%,#1d4ed8 15%,
+      #0ea5e9 30%,#eab308 50%,#f97316 70%,#ef4444 100%);
     overflow:visible;
   }
   .light-scale-pointer{
-    position:absolute;
-    top:-4px;
-    width:4px;
-    height:16px;
-    background:#fff;
-    border-radius:2px;
-    transform:translateX(-50%);
-    box-shadow:0 0 6px rgba(255,255,255,.8);
-    transition:left .6s ease;
+    position:absolute;top:-4px;width:3px;height:14px;
+    background:#fff;border-radius:2px;transform:translateX(-50%);
+    box-shadow:0 0 6px rgba(255,255,255,.8);transition:left .6s ease;
   }
   .light-scale-labels{
-    display:flex;
-    justify-content:space-between;
-    margin-top:4px;
-    font-size:.5rem;
-    color:var(--muted);
+    display:flex;justify-content:space-between;
+    margin-top:3px;font-size:.45rem;color:var(--muted);
   }
   .light-level-badge{
-    display:inline-block;
-    font-size:.6rem;
-    font-weight:700;
-    padding:2px 8px;
-    border-radius:999px;
-    margin-top:5px;
-    letter-spacing:.3px;
+    display:inline-block;font-size:.55rem;font-weight:700;
+    padding:2px 7px;border-radius:999px;margin-top:4px;
     transition:background .6s,color .6s;
   }
-  .sensor-val{
-    font-size:1.9rem;
-    font-weight:800;
-    line-height:1;
-    color:#fff;
-  }
-  .sensor-unit{font-size:.7rem;color:var(--muted);margin-left:2px}
-  .sensor-name{font-size:.65rem;color:var(--muted);margin-top:6px;letter-spacing:.5px}
-  .sensor-mini-chart{margin-top:8px;height:40px}
 
-  /* 歷史圖表 */
-  .chart-card{flex:1}
-  .chart-wrap{height:200px;position:relative}
+  /* AI 腐敗指數 */
+  .ai-card{}
+  .ai-val-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .ai-val{font-size:1.8rem;font-weight:800;color:var(--green)}
+  .ai-label-badge{
+    font-size:.68rem;font-weight:700;color:var(--green);
+    background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);
+    border-radius:999px;padding:3px 10px;
+  }
+  .ai-bar-bg{height:4px;background:#1e293b;border-radius:999px;overflow:hidden;margin-bottom:5px}
+  .ai-bar{height:100%;width:0%;background:var(--green);border-radius:999px;transition:width .8s ease}
+  .ai-ts{font-size:.58rem;color:var(--muted)}
+
+  /* 折扣說明表 */
+  .disc-table{width:100%;border-collapse:collapse;font-size:.62rem}
+  .disc-table th{text-align:left;padding:3px 0;color:var(--muted);border-bottom:1px solid var(--border)}
+  .disc-table td{padding:3px 0}
+
+  /* ── 底部趨勢圖 ── */
+  .chart-section{
+    padding:14px 20px;
+    flex:1;
+    display:flex;
+    flex-direction:column;
+  }
+  .chart-wrap{height:180px;position:relative;flex:1}
 
   /* ── 底部 ── */
   .footer{
-    text-align:center;
-    padding:10px;
-    font-size:.65rem;
-    color:var(--muted);
-    border-top:1px solid var(--border);
-    flex-shrink:0;
+    text-align:center;padding:8px;
+    font-size:.62rem;color:var(--muted);
+    border-top:1px solid var(--border);flex-shrink:0;
   }
-
-  /* ── 產品標籤 ── */
-  .product-tag{
-    display:inline-flex;align-items:center;gap:6px;
-    font-size:.75rem;color:var(--muted);
-    background:rgba(255,255,255,.05);
-    border:1px solid var(--border);
-    border-radius:999px;padding:3px 12px;
-    margin-bottom:10px;
-  }
-
-  /* ── 載入 ── */
-  .loading{
-    display:flex;align-items:center;justify-content:center;
-    height:100%;color:var(--muted);font-size:.85rem;gap:8px;
-  }
-  .spinner{
-    width:16px;height:16px;border:2px solid var(--border);
-    border-top-color:var(--blue);border-radius:50%;
-    animation:spin .8s linear infinite;
-  }
-  @keyframes spin{to{transform:rotate(360deg)}}
 
   /* ── 響應式 ── */
   @media(max-width:900px){
-    .main{grid-template-columns:1fr;grid-template-rows:auto}
-    .left-col{grid-row:auto;flex-direction:row;flex-wrap:wrap}
-    .gauge-card{flex:1;min-width:200px}
+    .price-hero{flex-direction:column;align-items:flex-start;padding:20px}
+    .price-hero-value{font-size:5rem}
+    .info-row{grid-template-columns:1fr}
     .sensor-grid{grid-template-columns:repeat(2,1fr)}
   }
 </style>
 </head>
 <body>
 
-<!-- 頂部標題欄 -->
+<!-- 頂部標題欄（精簡）-->
 <div class="topbar">
   <div class="topbar-left">
-    <div class="topbar-logo">🍌</div>
+    <div class="topbar-logo" id="product-emoji">🍌</div>
     <div>
       <div class="topbar-title" id="node-name">AIoT Smart Shelf</div>
       <div class="topbar-sub" id="node-location">智慧貨架分散式監控系統 · 電子報價牌</div>
     </div>
   </div>
   <div class="topbar-right">
-    <!-- 動態售價大字顯示區塊 -->
-    <div class="topbar-price-block">
-      <div>
-        <div class="topbar-price-label">💰 Dynamic Pricing</div>
-        <div class="topbar-price-base" id="tb-price-base">Base: $--/kg</div>
-        <div class="topbar-price-main">
-          <span class="topbar-price-currency">$</span>
-          <span id="tb-price-main">--</span>
-          <span class="topbar-price-unit">/kg</span>
-        </div>
-      </div>
-      <div>
-        <div class="topbar-discount-badge" id="tb-discount-badge">--</div>
-        <div class="topbar-price-reason" id="tb-discount-reason">正在載入定價資訊…</div>
-      </div>
-    </div>
     <div class="status-dot offline" id="status-dot"></div>
     <div class="clock" id="clock">--:--:--</div>
     <div class="update-badge" id="update-badge">等待數據…</div>
@@ -418,22 +347,38 @@
 <!-- 主體 -->
 <div class="main">
 
-  <!-- 左欄 -->
-  <div class="left-col">
+  <!-- ① 價格主體區（最大最顯眼）-->
+  <div class="price-hero">
+    <div class="price-hero-left">
+      <!-- 品名 + 新鮮度 -->
+      <div class="price-hero-product">
+        <span class="price-hero-product-name" id="product-name">香蕉</span>
+        <span class="freshness-badge" id="freshness-badge">等待數據</span>
+      </div>
+      <!-- 標籤 -->
+      <div class="price-hero-label">💰 Dynamic Pricing Status</div>
+      <!-- 原價（劃掉）-->
+      <div class="price-hero-base" id="price-base">原價 $--/kg</div>
+      <!-- 超大價格 -->
+      <div class="price-hero-main">
+        <span class="price-hero-currency">$</span>
+        <span class="price-hero-value" id="price-main">--</span>
+        <span class="price-hero-unit">/kg</span>
+      </div>
+      <!-- 折扣標籤 -->
+      <div class="price-hero-discount" id="discount-badge">等待資料…</div>
+      <!-- 折扣原因 -->
+      <div class="price-hero-reason" id="discount-reason">正在載入定價資訊…</div>
+    </div>
 
-    <!-- 品質儀表 -->
-    <div class="card gauge-card">
-      <div class="card-title"><span>📊</span> QUALITY PREDICTION METRICS</div>
-      <div class="product-tag" id="product-tag">🍌 香蕉</div>
+    <!-- 右側：品質儀表 + DSL -->
+    <div class="price-hero-right">
       <div class="gauge-wrap">
         <canvas id="gaugeChart"></canvas>
         <div class="gauge-center">
           <div class="gauge-score" id="quality-score">--</div>
           <div class="gauge-label">Quality Score</div>
         </div>
-      </div>
-      <div class="freshness-badge" id="freshness-badge" style="background:rgba(100,116,139,.2);color:#94a3b8;border:1px solid #334155">
-        等待數據
       </div>
       <div class="dsl-row">
         <div class="dsl-item">
@@ -445,130 +390,124 @@
           <div class="dsl-key">Predicted Waste Rate</div>
         </div>
       </div>
-      <!-- AI 腐敗指數 -->
-      <div style="margin-top:14px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid #1e293b;border-radius:10px;text-align:left">
-        <div style="font-size:.6rem;letter-spacing:1.2px;color:#64748b;text-transform:uppercase;margin-bottom:6px">🤖 AI Spoilage Index <span style="font-size:.55rem;color:#475569;text-transform:none;letter-spacing:0">(腐敗程度，越低越新鮮)</span></div>
-        <div style="display:flex;align-items:center;justify-content:space-between">
+    </div>
+  </div>
+
+  <!-- ② 輔助資訊區（感測器 + AI + 折扣表）-->
+  <div class="info-row">
+
+    <!-- 感測器 -->
+    <div class="card">
+      <div class="card-title"><span>🌡️</span> SENSOR DATA</div>
+      <div class="sensor-grid">
+        <!-- 溫度 -->
+        <div class="sensor-card temp">
+          <div class="sensor-icon">🌡️</div>
           <div>
-            <span id="ai-spoilage-val" style="font-size:1.5rem;font-weight:800;color:#22c55e">--</span>
-            <span style="font-size:.75rem;color:#64748b">%</span>
+            <span class="sensor-val" id="s-temp">--</span>
+            <span class="sensor-unit">°C</span>
           </div>
-          <div id="ai-label" style="font-size:.72rem;font-weight:700;color:#22c55e;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:999px;padding:3px 10px">等待推理</div>
+          <div class="sensor-name">TEMPERATURE</div>
+          <div class="sensor-mini-chart"><canvas id="chart-temp"></canvas></div>
         </div>
-        <div style="margin-top:6px;height:4px;background:#1e293b;border-radius:999px;overflow:hidden">
-          <div id="ai-bar" style="height:100%;width:0%;background:#22c55e;border-radius:999px;transition:width .8s ease"></div>
+        <!-- 濕度 -->
+        <div class="sensor-card hum">
+          <div class="sensor-icon">💧</div>
+          <div>
+            <span class="sensor-val" id="s-hum">--</span>
+            <span class="sensor-unit">%</span>
+          </div>
+          <div class="sensor-name">HUMIDITY</div>
+          <div class="sensor-mini-chart"><canvas id="chart-hum"></canvas></div>
         </div>
-        <div id="ai-infer-ts" style="font-size:.6rem;color:#475569;margin-top:5px">尚未推理</div>
+        <!-- 光照 -->
+        <div class="sensor-card light">
+          <div class="sensor-icon">☀️</div>
+          <div>
+            <span class="sensor-val" id="s-light">--</span>
+            <span class="sensor-unit">lux</span>
+          </div>
+          <div class="sensor-name">LIGHT INTENSITY</div>
+          <div class="light-scale">
+            <div class="light-scale-bar">
+              <div class="light-scale-pointer" id="light-pointer" style="left:0%"></div>
+            </div>
+            <div class="light-scale-labels">
+              <span>暗</span><span>500</span><span>2k</span><span>10k</span><span>亮</span>
+            </div>
+          </div>
+          <span class="light-level-badge" id="light-level-badge" style="background:#33415533;color:#94a3b8">--</span>
+          <div class="sensor-mini-chart"><canvas id="chart-light"></canvas></div>
+        </div>
       </div>
     </div>
 
-    <!-- 折扣說明卡（簡化版） -->
-    <div class="card" style="padding:14px 16px">
+    <!-- AI 腐敗指數 -->
+    <div class="card ai-card">
+      <div class="card-title"><span>🤖</span> AI SPOILAGE INDEX <span style="font-size:.55rem;text-transform:none;letter-spacing:0;color:#475569">(越低越新鮮)</span></div>
+      <div class="ai-val-row">
+        <div>
+          <span id="ai-spoilage-val" class="ai-val">--</span>
+          <span style="font-size:.75rem;color:var(--muted)">%</span>
+        </div>
+        <div id="ai-label" class="ai-label-badge">等待推理</div>
+      </div>
+      <div class="ai-bar-bg">
+        <div id="ai-bar" class="ai-bar"></div>
+      </div>
+      <div id="ai-infer-ts" class="ai-ts">尚未推理</div>
+    </div>
+
+    <!-- 折扣說明表 -->
+    <div class="card">
       <div class="card-title"><span>📊</span> DISCOUNT BREAKDOWN</div>
-      <div style="font-size:.68rem;color:var(--muted);margin-bottom:8px">折扣依據複合 DSL 自動計算</div>
-      <table style="width:100%;border-collapse:collapse;font-size:.65rem">
-        <tr style="color:var(--muted);border-bottom:1px solid #1e293b">
-          <th style="text-align:left;padding:4px 0">複合 DSL</th>
-          <th style="text-align:center;padding:4px 0">折扣</th>
-          <th style="text-align:right;padding:4px 0">狀態</th>
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">折扣依據複合 DSL 自動計算</div>
+      <table class="disc-table">
+        <tr>
+          <th>複合 DSL</th>
+          <th style="text-align:center">折扣</th>
+          <th style="text-align:right">狀態</th>
         </tr>
-        <tr id="dr-row-1" style="border-bottom:1px solid #1e293b11">
-          <td style="padding:4px 0;color:#94a3b8">DSL &gt; 7 天</td>
+        <tr id="dr-row-1">
+          <td style="color:#94a3b8">DSL &gt; 7 天</td>
           <td style="text-align:center;color:#22c55e">無折扣</td>
           <td style="text-align:right" id="dr-ind-1">—</td>
         </tr>
-        <tr id="dr-row-2" style="border-bottom:1px solid #1e293b11">
-          <td style="padding:4px 0;color:#94a3b8">3–7 天</td>
+        <tr id="dr-row-2">
+          <td style="color:#94a3b8">3–7 天</td>
           <td style="text-align:center;color:#eab308">-10%</td>
           <td style="text-align:right" id="dr-ind-2">—</td>
         </tr>
-        <tr id="dr-row-3" style="border-bottom:1px solid #1e293b11">
-          <td style="padding:4px 0;color:#94a3b8">1–3 天</td>
+        <tr id="dr-row-3">
+          <td style="color:#94a3b8">1–3 天</td>
           <td style="text-align:center;color:#f97316">-25%</td>
           <td style="text-align:right" id="dr-ind-3">—</td>
         </tr>
-        <tr id="dr-row-4" style="border-bottom:1px solid #1e293b11">
-          <td style="padding:4px 0;color:#94a3b8">0.5–1 天</td>
+        <tr id="dr-row-4">
+          <td style="color:#94a3b8">0.5–1 天</td>
           <td style="text-align:center;color:#ef4444">-35%</td>
           <td style="text-align:right" id="dr-ind-4">—</td>
         </tr>
         <tr id="dr-row-5">
-          <td style="padding:4px 0;color:#94a3b8">≤ 0.5 天</td>
+          <td style="color:#94a3b8">≤ 0.5 天</td>
           <td style="text-align:center;color:#dc2626">-50%</td>
           <td style="text-align:right" id="dr-ind-5">—</td>
         </tr>
       </table>
-      <div style="margin-top:10px;font-size:.65rem;color:var(--muted)" id="discount-reason">正在載入定價資訊…</div>
     </div>
 
   </div>
 
-  <!-- 右欄 -->
-  <div class="right-col">
-
-    <!-- 感測器四格 -->
-    <div class="sensor-grid">
-      <!-- 溫度 -->
-      <div class="sensor-card temp">
-        <div class="sensor-icon">🌡️</div>
-        <div>
-          <span class="sensor-val" id="s-temp">--</span>
-          <span class="sensor-unit">°C</span>
-        </div>
-        <div class="sensor-name">TEMPERATURE</div>
-        <div class="sensor-mini-chart">
-          <canvas id="chart-temp"></canvas>
-        </div>
-      </div>
-      <!-- 濕度 -->
-      <div class="sensor-card hum">
-        <div class="sensor-icon">💧</div>
-        <div>
-          <span class="sensor-val" id="s-hum">--</span>
-          <span class="sensor-unit">%</span>
-        </div>
-        <div class="sensor-name">HUMIDITY</div>
-        <div class="sensor-mini-chart">
-          <canvas id="chart-hum"></canvas>
-        </div>
-      </div>
-      <!-- 光照 -->
-      <div class="sensor-card light">
-        <div class="sensor-icon">☀️</div>
-        <div>
-          <span class="sensor-val" id="s-light">--</span>
-          <span class="sensor-unit">lux</span>
-        </div>
-        <div class="sensor-name">LIGHT INTENSITY</div>
-        <!-- 光照等級進度條 -->
-        <div class="light-scale">
-          <div class="light-scale-bar">
-            <div class="light-scale-pointer" id="light-pointer" style="left:0%"></div>
-          </div>
-          <div class="light-scale-labels">
-            <span>暗</span>
-            <span>500</span>
-            <span>2k</span>
-            <span>10k</span>
-            <span>亮</span>
-          </div>
-        </div>
-        <span class="light-level-badge" id="light-level-badge" style="background:#33415533;color:#94a3b8">--</span>
-        <div class="sensor-mini-chart">
-          <canvas id="chart-light"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- 歷史趨勢圖 -->
-    <div class="card chart-card">
+  <!-- ③ 底部趨勢圖 -->
+  <div class="chart-section">
+    <div class="card" style="flex:1;display:flex;flex-direction:column">
       <div class="card-title"><span>📈</span> REAL-TIME ENVIRONMENTAL MONITORING (Sensor Nodes)</div>
       <div class="chart-wrap">
         <canvas id="historyChart"></canvas>
       </div>
     </div>
-
   </div>
+
 </div>
 
 <!-- 底部 -->
@@ -586,6 +525,9 @@ const API_BASE  = window.location.origin;
 const PRODUCT_NAMES = {
   banana: '🍌 香蕉', apple: '🍎 蘋果',
   tomato: '🍅 番茄', lettuce: '🥬 萵苣'
+};
+const PRODUCT_EMOJIS = {
+  banana: '🍌', apple: '🍎', tomato: '🍅', lettuce: '🥬'
 };
 
 // ── 品質顏色 ──────────────────────────────────────────────────────────────────
@@ -651,10 +593,7 @@ function initMiniChart(id, color) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: { enabled: false } },
-      scales: {
-        x: { display: false },
-        y: { display: false },
-      },
+      scales: { x: { display: false }, y: { display: false } },
       animation: { duration: 400 },
     }
   });
@@ -662,6 +601,7 @@ function initMiniChart(id, color) {
 
 function pushMiniChart(id, val) {
   const ch = miniCharts[id];
+  if (!ch) return;
   ch.data.datasets[0].data.push(val);
   ch.data.datasets[0].data.shift();
   ch.update('none');
@@ -703,42 +643,33 @@ function initHistoryChart() {
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: {
           display: true,
           position: 'top',
-          align: 'end',
           labels: {
             color: '#94a3b8',
             font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', size: 11, style: 'normal' },
-            boxWidth: 12,
-            padding: 12,
+            boxWidth: 14,
           }
         },
-        tooltip: {
-          backgroundColor: '#1e293b',
-          borderColor: '#334155',
-          borderWidth: 1,
-          titleColor: '#94a3b8',
-          bodyColor: '#e2e8f0',
-          titleFont: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', style: 'normal' },
-          bodyFont: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', style: 'normal' },
-        }
+        tooltip: { mode: 'index', intersect: false }
       },
       scales: {
         x: {
           ticks: {
             color: '#64748b',
             font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', size: 10, style: 'normal' },
-            maxTicksLimit: 8,
+            maxTicksLimit: 10,
           },
           grid: { color: '#1e293b' },
         },
         y: {
           position: 'left',
-          title: { display: true, text: 'Temp (°C)', color: '#f97316',
-            font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', style: 'normal' } },
+          title: {
+            display: true, text: 'Temp (°C)', color: '#f97316',
+            font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', style: 'normal' }
+          },
           ticks: {
             color: '#f97316',
             font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', size: 10, style: 'normal' },
@@ -747,8 +678,10 @@ function initHistoryChart() {
         },
         y1: {
           position: 'right',
-          title: { display: true, text: 'Humidity (%)', color: '#06b6d4',
-            font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', style: 'normal' } },
+          title: {
+            display: true, text: 'Humidity (%)', color: '#06b6d4',
+            font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', style: 'normal' }
+          },
           ticks: {
             color: '#06b6d4',
             font: { family: 'Microsoft JhengHei, Segoe UI, sans-serif', size: 10, style: 'normal' },
@@ -767,7 +700,7 @@ function updateHistoryChart(readings) {
   const sorted = [...readings].reverse();
   historyChart.data.labels = sorted.map(r => {
     const ts = r.timestamp || r.recorded_at || '';
-    return ts.slice(11, 16); // HH:MM
+    return ts.slice(11, 16);
   });
   historyChart.data.datasets[0].data = sorted.map(r => r.temperature);
   historyChart.data.datasets[1].data = sorted.map(r => r.humidity);
@@ -795,8 +728,10 @@ async function fetchAndUpdate() {
     document.getElementById('node-name').textContent = node.name || 'AIoT Smart Shelf';
     document.getElementById('node-location').textContent =
       (node.location_name || '') + ' · 電子報價牌';
-    document.getElementById('product-tag').textContent =
-      PRODUCT_NAMES[node.product_type] || ('🛒 ' + (node.product_type || ''));
+    const productType = node.product_type || 'banana';
+    const productName = (PRODUCT_NAMES[productType] || ('🛒 ' + productType));
+    document.getElementById('product-name').textContent = productName;
+    document.getElementById('product-emoji').textContent = PRODUCT_EMOJIS[productType] || '🛒';
 
     // 感測器狀態
     const sensor = data.sensor || {};
@@ -808,12 +743,10 @@ async function fetchAndUpdate() {
     const temp  = sensor.temperature;
     const hum   = sensor.humidity;
     const light = sensor.light_lux;
-    const air   = sensor.air_velocity;
 
     document.getElementById('s-temp').textContent  = temp  != null ? temp.toFixed(1)  : '--';
     document.getElementById('s-hum').textContent   = hum   != null ? hum.toFixed(1)   : '--';
     document.getElementById('s-light').textContent = light != null ? Math.round(light) : '--';
-    document.getElementById('s-air').textContent   = air   != null ? air.toFixed(2)   : '--';
 
     // 光照等級指示器更新
     if (light != null) updateLightScale(light);
@@ -822,7 +755,6 @@ async function fetchAndUpdate() {
     if (temp  != null) pushMiniChart('chart-temp',  temp);
     if (hum   != null) pushMiniChart('chart-hum',   hum);
     if (light != null) pushMiniChart('chart-light',  light);
-    if (air   != null) pushMiniChart('chart-air',    air);
 
     // AI 腐敗指數
     const ai = data.ai || {};
@@ -837,21 +769,17 @@ async function fetchAndUpdate() {
       document.getElementById('ai-label').style.borderColor = color + '55';
       document.getElementById('ai-bar').style.width = sp.toFixed(1) + '%';
       document.getElementById('ai-bar').style.background = color;
-      // 來源標示
       const sourceMap = {
-        'manual':         '\u624b\u52d5\u8a55\u4f30',
-        'manual_predict': '\u624b\u52d5\u5b8c\u6574\u63a8\u7406',
-        'auto':           '\u81ea\u52d5\u63a8\u7406',
+        'manual': '手動評估', 'manual_predict': '手動完整推理', 'auto': '自動推理',
       };
-      const sourceLabel = sourceMap[ai.source] || '\u81ea\u52d5\u63a8\u7406';
-      const sourceColor = (ai.source === 'manual' || ai.source === 'manual_predict')
-        ? '#a78bfa' : '#38bdf8';
+      const sourceLabel = sourceMap[ai.source] || '自動推理';
+      const sourceColor = (ai.source === 'manual' || ai.source === 'manual_predict') ? '#a78bfa' : '#38bdf8';
       document.getElementById('ai-infer-ts').innerHTML =
-        '<span style="color:' + sourceColor + ';font-size:0.75rem;margin-right:6px;">[' + sourceLabel + ']</span>' +
-        '\u6700\u5f8c\u66f4\u65b0\uff1a' + (ai.inferred_at || '').slice(11, 19);
+        '<span style="color:' + sourceColor + ';font-size:0.72rem;margin-right:6px;">[' + sourceLabel + ']</span>' +
+        '最後更新：' + (ai.inferred_at || '').slice(11, 19);
     } else {
       document.getElementById('ai-infer-ts').textContent =
-        ai.available === false ? '\u7b49\u5f85 AI \u63a8\u7406\uff08\u6bcf 10 \u79d2\u81ea\u52d5\u57f7\u884c\uff09' : '\u7b49\u5f85\u611f\u6e2c\u5668\u6578\u64da\u2026';
+        ai.available === false ? '等待 AI 推理（每 10 秒自動執行）' : '等待感測器數據…';
     }
 
     // 品質數據
@@ -873,7 +801,7 @@ async function fetchAndUpdate() {
       const dsl = q.dsl_days ?? q.dsl_combined ?? 0;
       document.getElementById('dsl-val').textContent = dsl.toFixed(1) + ' Days';
 
-      // 廢棄率估算（DSL 越短廢棄率越高）
+      // 廢棄率
       const wasteRate = Math.max(0, Math.min(100, (1 - dsl / 14) * 100));
       document.getElementById('waste-val').textContent = wasteRate.toFixed(1) + '%';
 
@@ -882,50 +810,53 @@ async function fetchAndUpdate() {
       const finalPrice = q.final_price ?? basePrice;
       const discPct    = q.discount_pct ?? 0;
 
-      // 更新 topbar 動態售價大字顯示
-      document.getElementById('tb-price-base').textContent = `Base: $${basePrice.toFixed(2)}/kg`;
-      document.getElementById('tb-price-main').textContent = finalPrice.toFixed(2);
-      const tbBadge = document.getElementById('tb-discount-badge');
+      // 更新主體價格大字
+      document.getElementById('price-base').textContent = `原價 $${basePrice.toFixed(2)}/kg`;
+      document.getElementById('price-main').textContent = finalPrice.toFixed(2);
+
+      const discBadge = document.getElementById('discount-badge');
       if (discPct > 0) {
-        tbBadge.textContent = `🔻 -${discPct}% OFF`;
-        tbBadge.className = 'topbar-discount-badge has-discount';
+        discBadge.textContent = `🔻 折扣 ${discPct}% OFF`;
+        discBadge.className = 'price-hero-discount has-discount';
+        // 價格數字根據折扣程度變色
+        const priceColor = discPct >= 35 ? '#ef4444' : discPct >= 25 ? '#f97316' : '#eab308';
+        document.getElementById('price-main').style.color = priceColor;
+        document.getElementById('price-main').style.textShadow = `0 0 40px ${priceColor}44`;
       } else {
-        tbBadge.textContent = '✔ Standard Price';
-        tbBadge.className = 'topbar-discount-badge';
+        discBadge.textContent = '✔ 正常售價';
+        discBadge.className = 'price-hero-discount';
+        document.getElementById('price-main').style.color = '#fff';
+        document.getElementById('price-main').style.textShadow = '0 0 40px rgba(255,255,255,.15)';
       }
-      document.getElementById('tb-discount-reason').textContent =
+      document.getElementById('discount-reason').textContent =
         q.discount_reason || '品質良好，正常售價';
 
-      // 更新折扣等級表狀態指示器
-      const dslForDisc = dsl;
+      // 折扣等級表狀態指示器
       const discRows = [
-        {id:'dr-ind-1', min:7,   max:Infinity, label:'✔ 當前'},
-        {id:'dr-ind-2', min:3,   max:7,        label:'✔ 當前'},
-        {id:'dr-ind-3', min:1,   max:3,        label:'✔ 當前'},
-        {id:'dr-ind-4', min:0.5, max:1,        label:'✔ 當前'},
-        {id:'dr-ind-5', min:0,   max:0.5,      label:'✔ 當前'},
+        {id:'dr-ind-1', min:7,   max:Infinity},
+        {id:'dr-ind-2', min:3,   max:7},
+        {id:'dr-ind-3', min:1,   max:3},
+        {id:'dr-ind-4', min:0.5, max:1},
+        {id:'dr-ind-5', min:0,   max:0.5},
       ];
       discRows.forEach(r => {
         const el = document.getElementById(r.id);
         if (!el) return;
-        const active = dslForDisc >= r.min && dslForDisc < r.max;
-        el.textContent = active ? r.label : '—';
+        const active = dsl >= r.min && dsl < r.max;
+        el.textContent = active ? '✔ 當前' : '—';
         el.style.color = active ? '#22c55e' : '#475569';
         el.parentElement.style.background = active ? 'rgba(34,197,94,.06)' : '';
       });
 
-      document.getElementById('discount-reason').textContent =
-        q.discount_reason || '品質良好，正常售價';
     } else {
-      // 無品質數據時顯示基礎價格
+      // 無品質數據
       const basePrice = node.base_price ?? 100;
-      document.getElementById('tb-price-base').textContent = `Base: $${basePrice.toFixed(2)}/kg`;
-      document.getElementById('tb-price-main').textContent = basePrice.toFixed(2);
-      document.getElementById('tb-discount-badge').textContent = '等待資料…';
-      document.getElementById('tb-discount-reason').textContent =
-        online ? '感測器已連線，等待 AI 推理（15 秒後首次執行）…' : '感測器離線，請確認裝置連線';
+      document.getElementById('price-base').textContent = `原價 $${basePrice.toFixed(2)}/kg`;
+      document.getElementById('price-main').textContent = basePrice.toFixed(2);
+      document.getElementById('discount-badge').textContent = '等待資料…';
+      document.getElementById('discount-badge').className = 'price-hero-discount';
       document.getElementById('discount-reason').textContent =
-        online ? '感測器已連線，等待 AI 推理…' : '感測器離線';
+        online ? '感測器已連線，等待 AI 推理（15 秒後首次執行）…' : '感測器離線，請確認裝置連線';
     }
 
     // 歷史圖表
@@ -945,38 +876,13 @@ async function fetchAndUpdate() {
 }
 
 // ── 光照等級指示器 ────────────────────────────────────────────────────────────
-// 尺度：對數尺度 0-100k lux 映射到 0-100%
-// 分段：黑暗(<100) / 昏暗(100-500) / 一般室內(500-2k) / 明亮室內(2k-10k) / 強光(10k-50k) / 直射陽光(>50k)
 function updateLightScale(lux) {
-  // 對數映射：將 0-100000 lux 映射到 0-100%
-  // 使用分段線性映射，讓低光區間也有足夠分辨率
-  const segments = [
-    { max: 100,    pct: 5  },   // 0-100 lux → 0-5%
-    { max: 500,    pct: 15 },   // 100-500 → 5-15%
-    { max: 2000,   pct: 30 },   // 500-2k → 15-30%
-    { max: 10000,  pct: 55 },   // 2k-10k → 30-55%
-    { max: 50000,  pct: 80 },   // 10k-50k → 55-80%
-    { max: 100000, pct: 100 },  // 50k-100k → 80-100%
-  ];
+  // 對數尺度映射 0-65535 → 0-100%
+  const logMax = Math.log10(65535 + 1);
+  const pct = lux <= 0 ? 0 : Math.min(100, (Math.log10(lux + 1) / logMax) * 100);
+  const ptr = document.getElementById('light-pointer');
+  if (ptr) ptr.style.left = pct.toFixed(1) + '%';
 
-  let pct = 0;
-  const prevMax = [0, 100, 500, 2000, 10000, 50000];
-  const prevPct = [0, 5,   15,  30,   55,    80];
-  for (let i = 0; i < segments.length; i++) {
-    if (lux <= segments[i].max) {
-      const ratio = (lux - prevMax[i]) / (segments[i].max - prevMax[i]);
-      pct = prevPct[i] + ratio * (segments[i].pct - prevPct[i]);
-      break;
-    }
-    pct = segments[i].pct;
-  }
-  pct = Math.max(0, Math.min(100, pct));
-
-  // 更新指针位置
-  const pointer = document.getElementById('light-pointer');
-  if (pointer) pointer.style.left = pct + '%';
-
-  // 判斷等級
   let level, bg, color;
   if (lux < 100) {
     level = '🌙 黑暗'; bg = '#1e293b'; color = '#94a3b8';
@@ -1005,7 +911,6 @@ initGauge();
 initMiniChart('chart-temp',  '#f97316');
 initMiniChart('chart-hum',   '#06b6d4');
 initMiniChart('chart-light', '#eab308');
-initMiniChart('chart-air',   '#a855f7');
 initHistoryChart();
 
 // 首次載入
