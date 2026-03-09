@@ -14,7 +14,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 /* ── 頂部導航 ── */
 .navbar{background:rgba(15,23,42,.97);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;backdrop-filter:blur(10px)}
 .nav-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1rem;color:#f1f5f9}
-.nav-brand span{font-size:1.4rem}
 .nav-badge{background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;font-size:.6rem;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.5px}
 .nav-right{display:flex;align-items:center;gap:12px}
 .nav-user{font-size:.82rem;color:#94a3b8}
@@ -35,7 +34,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .tab-pane{display:none}
 .tab-pane.active{display:block}
 /* ── 節點列表 ── */
-.node-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+.node-list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.node-list-title{font-size:.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px}
+.btn-add-node{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:var(--blue);padding:5px 12px;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:5px}
+.btn-add-node:hover{background:var(--blue);color:#fff}
+.node-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s;position:relative}
 .node-card:hover,.node-card.selected{border-color:var(--blue);background:rgba(59,130,246,.08)}
 .node-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
 .node-name{font-weight:700;font-size:.9rem;color:#f1f5f9}
@@ -49,7 +52,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .sensor-mini-label{font-size:.65rem;color:#475569;text-transform:uppercase;letter-spacing:.3px}
 .sensor-mini-val{font-size:1.1rem;font-weight:700;color:#f1f5f9;margin-top:2px}
 .sensor-mini-unit{font-size:.7rem;color:#64748b}
-.node-product-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:.75rem;color:#64748b}
+.node-meta-row{display:flex;align-items:center;justify-content:space-between;margin-top:8px;font-size:.75rem;color:#64748b}
+.node-actions{display:flex;gap:5px;margin-top:8px}
+.btn-node-action{flex:1;padding:5px 8px;border-radius:6px;border:none;font-size:.72rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-node-edit{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid rgba(59,130,246,.3)}
+.btn-node-edit:hover{background:var(--blue);color:#fff}
+.btn-node-assess{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.btn-node-assess:hover{background:var(--green);color:#fff}
 /* ── 品質評估面板 ── */
 .assess-section{margin-bottom:18px}
 .assess-title{font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
@@ -103,6 +112,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .map-stat{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(51,65,85,.5)}
 .map-stat:last-child{border-bottom:none}
 .map-stat-val{color:#facc15;font-weight:700}
+.btn-add-node-map{width:100%;margin-top:10px;padding:7px 0;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:var(--blue);border-radius:7px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-add-node-map:hover{background:var(--blue);color:#fff}
 /* ── 節點詳情彈窗 ── */
 .node-detail-panel{position:absolute;bottom:0;left:0;right:0;background:rgba(15,23,42,.97);border-top:1px solid var(--border);padding:16px 20px;z-index:600;display:none;max-height:40vh;overflow-y:auto;backdrop-filter:blur(10px)}
 .node-detail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
@@ -142,6 +153,29 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .disc-badge{display:inline-block;font-weight:700;font-size:.7rem;padding:1px 7px;border-radius:999px}
 .disc-no{background:#166534;color:#bbf7d0}
 .disc-yes{background:#dc2626;color:#fff}
+/* ── 節點 Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:2000;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.modal-box{background:#1e293b;border:1px solid var(--border);border-radius:16px;padding:28px;width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 25px 60px rgba(0,0,0,.6)}
+.modal-title{font-size:1rem;font-weight:700;color:#f1f5f9;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.modal-title span{font-size:1.2rem}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-grid .full{grid-column:1/-1}
+.modal-label{font-size:.75rem;color:#94a3b8;font-weight:500;margin-bottom:5px;display:block}
+.modal-input{width:100%;background:#0f172a;border:1px solid var(--border);border-radius:8px;color:#f1f5f9;font-size:.88rem;padding:9px 12px;outline:none;transition:border-color .2s}
+.modal-input:focus{border-color:var(--blue)}
+.modal-select{width:100%;background:#0f172a;border:1px solid var(--border);border-radius:8px;color:#f1f5f9;font-size:.88rem;padding:9px 12px;outline:none;cursor:pointer}
+.modal-hint{font-size:.7rem;color:#475569;margin-top:4px}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+.btn-modal-cancel{background:transparent;border:1px solid var(--border);color:#94a3b8;padding:9px 20px;border-radius:8px;font-size:.85rem;cursor:pointer;transition:all .2s}
+.btn-modal-cancel:hover{border-color:#64748b;color:#f1f5f9}
+.btn-modal-save{background:linear-gradient(135deg,var(--blue),var(--purple));border:none;color:#fff;padding:9px 24px;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;transition:opacity .2s}
+.btn-modal-save:hover{opacity:.9}
+.btn-modal-delete{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);color:#ef4444;padding:9px 16px;border-radius:8px;font-size:.85rem;cursor:pointer;transition:all .2s;margin-right:auto}
+.btn-modal-delete:hover{background:#ef4444;color:#fff}
+.modal-section-title{font-size:.7rem;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;grid-column:1/-1;border-top:1px solid var(--border);padding-top:12px}
+.map-pick-hint{font-size:.72rem;color:#3b82f6;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:6px 10px;margin-top:6px;grid-column:1/-1}
+.coord-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;grid-column:1/-1}
 </style>
 </head>
 <body>
@@ -149,14 +183,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 <!-- ── 頂部導航 ── -->
 <nav class="navbar">
   <div class="nav-brand">
-    <span>🍌</span>
     AIoT Smart Shelf
     <span class="nav-badge">v4.0</span>
   </div>
   <div class="nav-right">
     <div class="nav-user">歡迎，<strong id="nav-username">--</strong></div>
     <button class="btn-nav" onclick="window.location.href='/admin'" id="btn-admin" style="display:none">
-      ⚙️ 後台管理
+      後台管理
     </button>
     <button class="btn-nav" onclick="doLogout()">登出</button>
   </div>
@@ -176,6 +209,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
     <!-- 節點列表 -->
     <div class="tab-content">
       <div class="tab-pane active" id="tab-nodes">
+        <div class="node-list-header">
+          <span class="node-list-title">銷售節點</span>
+          <button class="btn-add-node" onclick="openNodeModal(null)" id="btn-add-node-list" style="display:none">
+            + 新增節點
+          </button>
+        </div>
         <div id="node-list">
           <div style="text-align:center;padding:30px;color:#475569;font-size:.85rem">載入中…</div>
         </div>
@@ -198,7 +237,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
             <img id="assess-camera" src="" alt="相機畫面" style="min-height:120px"/>
             <div class="camera-footer">
               <span id="camera-ts">--</span>
-              <button class="btn-nav" onclick="refreshCamera()" style="padding:3px 8px;font-size:.68rem">🔄</button>
+              <button class="btn-nav" onclick="refreshCamera()" style="padding:3px 8px;font-size:.68rem">重新整理</button>
             </div>
           </div>
         </div>
@@ -208,10 +247,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
           <div class="ctrl-group">
             <label>產品類型</label>
             <select id="assess-product" onchange="onProductChange()">
-              <option value="banana">🍌 香蕉</option>
-              <option value="apple">🍎 蘋果</option>
-              <option value="tomato">🍅 番茄</option>
-              <option value="lettuce">🥬 萵苣</option>
+              <option value="banana">香蕉</option>
+              <option value="apple">蘋果</option>
+              <option value="tomato">番茄</option>
+              <option value="lettuce">萵苣</option>
             </select>
           </div>
           <div class="ctrl-group">
@@ -229,7 +268,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
             <label>原始售價（元）</label>
             <input type="number" id="assess-price" value="100" min="1"/>
           </div>
-          <span class="manual-toggle" onclick="toggleManual()">📡 手動輸入感測器數值</span>
+          <span class="manual-toggle" onclick="toggleManual()">手動輸入感測器數值</span>
           <div class="manual-inputs" id="manual-inputs">
             <div class="manual-row">
               <div class="ctrl-group">
@@ -243,7 +282,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
             </div>
           </div>
           <button class="btn-predict" id="predict-btn" onclick="runPredict()">
-            <span>🔍 執行複合品質評估</span>
+            <span>執行複合品質評估</span>
             <div class="spinner" id="spinner"></div>
           </button>
           <div class="error-msg" id="error-msg"></div>
@@ -301,7 +340,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
             <tbody>
               <tr><td>DSL &gt; 7 天</td><td><span class="disc-badge disc-no">無折扣</span></td><td>新鮮</td></tr>
               <tr><td>3 &lt; DSL ≤ 7</td><td><span class="disc-badge disc-yes">-10%</span></td><td>輕微老化</td></tr>
-              <tr><td>1 &lt; DSL ≤ 3</td><td><span class="disc-badge disc-yes">-25%</span></td><td>近效期 ★</td></tr>
+              <tr><td>1 &lt; DSL ≤ 3</td><td><span class="disc-badge disc-yes">-25%</span></td><td>近效期</td></tr>
               <tr><td>0.5 &lt; DSL ≤ 1</td><td><span class="disc-badge disc-yes">-35%</span></td><td>急需銷售</td></tr>
               <tr><td>DSL ≤ 0.5</td><td><span class="disc-badge disc-yes">-50%</span></td><td>最終清倉</td></tr>
             </tbody>
@@ -337,11 +376,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
     <!-- 地圖右上角統計 -->
     <div class="map-overlay">
       <div class="map-info-card">
-        <strong>🗺️ 節點總覽</strong>
+        <strong>節點總覽</strong>
         <div class="map-stat"><span>總節點數</span><span class="map-stat-val" id="stat-total">--</span></div>
         <div class="map-stat"><span>線上節點</span><span class="map-stat-val" id="stat-active">--</span></div>
         <div class="map-stat"><span>平均品質</span><span class="map-stat-val" id="stat-quality">--</span></div>
         <div class="map-stat"><span>平均折扣</span><span class="map-stat-val" id="stat-discount">--</span></div>
+        <button class="btn-add-node-map" onclick="openNodeModal(null)" id="btn-add-node-map" style="display:none">
+          + 新增銷售節點
+        </button>
       </div>
     </div>
 
@@ -356,6 +398,97 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
   </div>
 </div>
 
+<!-- ── 節點新增/編輯 Modal ── -->
+<div class="modal-overlay" id="node-modal">
+  <div class="modal-box">
+    <div class="modal-title">
+      <span id="modal-icon">+</span>
+      <span id="modal-title-text">新增銷售節點</span>
+    </div>
+    <div class="modal-grid">
+      <!-- 基本資訊 -->
+      <div class="modal-section-title">基本資訊</div>
+      <div>
+        <label class="modal-label">節點 ID *</label>
+        <input class="modal-input" id="m-node-id" placeholder="例：NODE_A01" maxlength="30"/>
+        <div class="modal-hint">建立後不可更改</div>
+      </div>
+      <div>
+        <label class="modal-label">節點名稱 *</label>
+        <input class="modal-input" id="m-name" placeholder="例：旺角銷售點 #1"/>
+      </div>
+      <div class="full">
+        <label class="modal-label">地點描述</label>
+        <input class="modal-input" id="m-location" placeholder="例：旺角西洋菜街 100 號"/>
+      </div>
+      <div>
+        <label class="modal-label">樓層 / 區域</label>
+        <input class="modal-input" id="m-floor" placeholder="例：G/F、B1"/>
+      </div>
+      <div>
+        <label class="modal-label">狀態</label>
+        <select class="modal-select" id="m-status">
+          <option value="active">線上 (Active)</option>
+          <option value="inactive">離線 (Inactive)</option>
+          <option value="maintenance">維護中</option>
+        </select>
+      </div>
+
+      <!-- 產品設定 -->
+      <div class="modal-section-title">產品設定</div>
+      <div>
+        <label class="modal-label">產品類型</label>
+        <select class="modal-select" id="m-product" onchange="onModalProductChange()">
+          <option value="banana">香蕉</option>
+          <option value="apple">蘋果</option>
+          <option value="tomato">番茄</option>
+          <option value="lettuce">萵苣</option>
+        </select>
+      </div>
+      <div>
+        <label class="modal-label">初始 DSL（天）</label>
+        <input class="modal-input" id="m-initial-dsl" type="number" value="10" min="1" max="60"/>
+      </div>
+      <div>
+        <label class="modal-label">基礎售價（元/kg）</label>
+        <input class="modal-input" id="m-base-price" type="number" value="100" min="1"/>
+      </div>
+
+      <!-- 設備設定 -->
+      <div class="modal-section-title">設備設定</div>
+      <div class="full">
+        <label class="modal-label">相機 URL</label>
+        <input class="modal-input" id="m-camera-url" placeholder="https://..."/>
+      </div>
+      <div class="full">
+        <label class="modal-label">MQTT 主題</label>
+        <input class="modal-input" id="m-mqtt-topic" placeholder="m5go/ISM/env"/>
+      </div>
+
+      <!-- 地圖位置 -->
+      <div class="modal-section-title">地圖位置</div>
+      <div class="map-pick-hint full" id="map-pick-hint">
+        點擊地圖上任意位置可自動填入座標，或直接輸入經緯度
+      </div>
+      <div class="coord-row">
+        <div>
+          <label class="modal-label">緯度 (Lat)</label>
+          <input class="modal-input" id="m-lat" type="number" step="0.0001" value="22.3193"/>
+        </div>
+        <div>
+          <label class="modal-label">經度 (Lng)</label>
+          <input class="modal-input" id="m-lng" type="number" step="0.0001" value="114.1694"/>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal-delete" id="btn-modal-delete" onclick="deleteNode()" style="display:none">刪除節點</button>
+      <button class="btn-modal-cancel" onclick="closeNodeModal()">取消</button>
+      <button class="btn-modal-save" onclick="saveNode()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ── 全域狀態 ──────────────────────────────────────────────────────────────────
 let token = localStorage.getItem('ctma_token');
@@ -365,6 +498,8 @@ let selectedNodeId = null;
 let manualMode = false;
 let map, markers = {};
 let qualityChart = null, sensorChart = null;
+let editingNodeId = null;  // 正在編輯的節點 ID（null = 新增）
+let mapPickMode = false;   // 是否在地圖點選座標模式
 
 const PRODUCT_DEFAULT_DSL = {banana:10, apple:14, tomato:10, lettuce:7};
 
@@ -383,7 +518,6 @@ function doLogout() {
 
 // ── 初始化 ────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  // 驗證 Token
   try {
     const r = await fetch('/api/auth/me', {headers: authHeader()});
     if (!r.ok) { doLogout(); return; }
@@ -392,13 +526,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('nav-username').textContent = u.display_name || u.username;
     if (u.role === 'admin') {
       document.getElementById('btn-admin').style.display = 'block';
+      document.getElementById('btn-add-node-list').style.display = 'flex';
+      document.getElementById('btn-add-node-map').style.display = 'block';
     }
   } catch(e) { doLogout(); return; }
 
   initMap();
   await loadNodes();
-  setInterval(loadNodes, 15000);  // 每 15 秒自動更新
-  setInterval(refreshCamera, 5000); // 每 5 秒刷新相機
+  setInterval(loadNodes, 15000);
+  setInterval(refreshCamera, 5000);
 });
 
 // ── 地圖初始化 ────────────────────────────────────────────────────────────────
@@ -409,12 +545,24 @@ function initMap() {
     zoomControl: true,
   });
 
-  // 深色地圖底圖
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© OpenStreetMap contributors © CARTO',
     subdomains: 'abcd',
     maxZoom: 20,
   }).addTo(map);
+
+  // 地圖點選：在 Modal 開啟時填入座標
+  map.on('click', function(e) {
+    if (document.getElementById('node-modal').classList.contains('active')) {
+      document.getElementById('m-lat').value = e.latlng.lat.toFixed(6);
+      document.getElementById('m-lng').value = e.latlng.lng.toFixed(6);
+      document.getElementById('map-pick-hint').textContent =
+        `已選取位置：${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+      document.getElementById('map-pick-hint').style.background = 'rgba(34,197,94,.1)';
+      document.getElementById('map-pick-hint').style.borderColor = 'rgba(34,197,94,.3)';
+      document.getElementById('map-pick-hint').style.color = '#22c55e';
+    }
+  });
 }
 
 // ── 載入節點 ──────────────────────────────────────────────────────────────────
@@ -435,22 +583,24 @@ async function loadNodes() {
 function renderNodeList() {
   const container = document.getElementById('node-list');
   if (!nodes.length) {
-    container.innerHTML = '<div style="text-align:center;padding:30px;color:#475569;font-size:.85rem">暫無節點</div>';
+    container.innerHTML = '<div style="text-align:center;padding:30px;color:#475569;font-size:.85rem">暫無節點<br><small>點擊「新增節點」建立第一個銷售點</small></div>';
     return;
   }
+  const isAdmin = currentUser.role === 'admin';
   container.innerHTML = nodes.map(n => {
     const sensor = n.latest_sensor || {};
     const temp = sensor.temperature != null ? sensor.temperature.toFixed(1) : '--';
     const hum  = sensor.humidity    != null ? sensor.humidity.toFixed(1)    : '--';
     const statusClass = n.status === 'active' ? 'status-active' : n.status === 'maintenance' ? 'status-maintenance' : 'status-inactive';
     const statusText  = n.status === 'active' ? '線上' : n.status === 'maintenance' ? '維護中' : '離線';
-    const productEmoji = {banana:'🍌',apple:'🍎',tomato:'🍅',lettuce:'🥬'}[n.product] || '📦';
+    const productName = {banana:'香蕉',apple:'蘋果',tomato:'番茄',lettuce:'萵苣'}[n.product] || n.product;
+    const editBtn = isAdmin ? `<button class="btn-node-action btn-node-edit" onclick="event.stopPropagation();openNodeModal('${n.node_id}')">編輯</button>` : '';
     return `<div class="node-card${selectedNodeId===n.node_id?' selected':''}" onclick="selectNode('${n.node_id}')">
       <div class="node-card-header">
         <div class="node-name">${n.name}</div>
         <span class="node-status ${statusClass}">${statusText}</span>
       </div>
-      <div class="node-location">📍 ${n.location_name || '未設定位置'}</div>
+      <div class="node-location">${n.location_name || '未設定位置'}</div>
       <div class="node-sensor-row">
         <div class="sensor-mini">
           <div class="sensor-mini-label">溫度</div>
@@ -463,16 +613,19 @@ function renderNodeList() {
           <div class="sensor-mini-unit">%</div>
         </div>
       </div>
-      <div class="node-product-row">
-        <span>${productEmoji} ${n.product}</span>
+      <div class="node-meta-row">
+        <span>${productName}</span>
         <span>初始 DSL: ${n.initial_dsl} 天</span>
+      </div>
+      <div class="node-actions">
+        ${editBtn}
+        <button class="btn-node-action btn-node-assess" onclick="event.stopPropagation();selectNode('${n.node_id}');switchTab('assess')">品質評估</button>
       </div>
     </div>`;
   }).join('');
 }
 
 function renderMapMarkers() {
-  // 清除舊標記
   Object.values(markers).forEach(m => map.removeLayer(m));
   markers = {};
 
@@ -481,32 +634,37 @@ function renderMapMarkers() {
     const hasData = sensor.temperature != null;
     const markerClass = n.status !== 'active' ? 'marker-inactive' :
                         !hasData ? 'marker-inactive' : 'marker-active';
-    const emoji = {banana:'🍌',apple:'🍎',tomato:'🍅',lettuce:'🥬'}[n.product] || '📦';
+    const productInitial = {banana:'B',apple:'A',tomato:'T',lettuce:'L'}[n.product] || 'N';
 
     const icon = L.divIcon({
       className: 'custom-marker',
-      html: `<div class="marker-pin ${markerClass}">${emoji}</div>`,
+      html: `<div class="marker-pin ${markerClass}" style="font-size:.75rem;font-weight:800;color:#fff">${productInitial}</div>`,
       iconSize: [36, 36],
       iconAnchor: [18, 18],
     });
 
     const temp = hasData ? sensor.temperature.toFixed(1) + '°C' : '--';
     const hum  = hasData ? sensor.humidity.toFixed(1) + '%' : '--';
+    const productName = {banana:'香蕉',apple:'蘋果',tomato:'番茄',lettuce:'萵苣'}[n.product] || n.product;
 
     const marker = L.marker([n.lat, n.lng], {icon})
       .addTo(map)
       .bindPopup(`
-        <div class="popup-title">${emoji} ${n.name}</div>
+        <div class="popup-title">${n.name}</div>
         <div class="popup-row"><span>位置</span><span class="popup-val">${n.location_name || '--'}</span></div>
         <div class="popup-row"><span>溫度</span><span class="popup-val">${temp}</span></div>
         <div class="popup-row"><span>濕度</span><span class="popup-val">${hum}</span></div>
-        <div class="popup-row"><span>產品</span><span class="popup-val">${n.product}</span></div>
+        <div class="popup-row"><span>產品</span><span class="popup-val">${productName}</span></div>
         <div class="popup-row"><span>狀態</span><span class="popup-val">${n.status}</span></div>
-        <div style="margin-top:8px;text-align:center">
-          <button onclick="selectNode('${n.node_id}');switchTab('assess')" 
-                  style="background:#3b82f6;color:#fff;border:none;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:.78rem">
-            🔍 執行評估
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <button onclick="selectNode('${n.node_id}');switchTab('assess')"
+                  style="flex:1;background:#3b82f6;color:#fff;border:none;padding:5px 0;border-radius:6px;cursor:pointer;font-size:.78rem">
+            品質評估
           </button>
+          ${currentUser.role==='admin'?`<button onclick="openNodeModal('${n.node_id}')"
+                  style="flex:1;background:#334155;color:#94a3b8;border:1px solid #475569;padding:5px 0;border-radius:6px;cursor:pointer;font-size:.78rem">
+            編輯
+          </button>`:''}
         </div>
       `, {maxWidth: 240})
       .on('click', () => showNodeDetail(n));
@@ -514,7 +672,6 @@ function renderMapMarkers() {
     markers[n.node_id] = marker;
   });
 
-  // 自動縮放到所有節點
   if (nodes.length > 0) {
     const latlngs = nodes.map(n => [n.lat, n.lng]);
     try { map.fitBounds(latlngs, {padding: [40, 40], maxZoom: 17}); } catch(e) {}
@@ -533,7 +690,6 @@ function updateNodeSelects() {
 function updateMapStats() {
   document.getElementById('stat-total').textContent   = nodes.length;
   document.getElementById('stat-active').textContent  = nodes.filter(n => n.status === 'active').length;
-  // 從後台取統計
   fetch('/api/admin/dashboard', {headers: authHeader()})
     .then(r => r.ok ? r.json() : null)
     .then(d => {
@@ -550,12 +706,10 @@ function selectNode(nodeId) {
   document.getElementById('assess-node-select').value = nodeId;
   renderNodeList();
 
-  // 地圖飛到節點
   const node = nodes.find(n => n.node_id === nodeId);
   if (node) {
     map.flyTo([node.lat, node.lng], 17, {duration: 1});
     if (markers[nodeId]) markers[nodeId].openPopup();
-    // 設定產品與初始 DSL
     document.getElementById('assess-product').value = node.product || 'banana';
     document.getElementById('assess-initial-dsl').value = node.initial_dsl || 10;
     document.getElementById('assess-price').value = node.base_price || 100;
@@ -575,12 +729,13 @@ function onProductChange() {
 
 function showNodeDetail(node) {
   const sensor = node.latest_sensor || {};
+  const productName = {banana:'香蕉',apple:'蘋果',tomato:'番茄',lettuce:'萵苣'}[node.product] || node.product;
   document.getElementById('detail-title').textContent = node.name;
   document.getElementById('detail-grid').innerHTML = [
     {label:'位置', val: node.location_name || '--', color:'#94a3b8'},
     {label:'溫度', val: sensor.temperature != null ? sensor.temperature.toFixed(1)+'°C' : '--', color:'#f97316'},
     {label:'濕度', val: sensor.humidity    != null ? sensor.humidity.toFixed(1)+'%'    : '--', color:'#3b82f6'},
-    {label:'產品', val: node.product, color:'#22c55e'},
+    {label:'產品', val: productName, color:'#22c55e'},
     {label:'初始 DSL', val: node.initial_dsl + ' 天', color:'#facc15'},
     {label:'狀態', val: node.status, color: node.status==='active' ? '#22c55e' : '#ef4444'},
   ].map(s => `<div class="detail-stat">
@@ -592,6 +747,145 @@ function showNodeDetail(node) {
 
 function closeDetail() {
   document.getElementById('node-detail-panel').style.display = 'none';
+}
+
+// ── 節點 Modal ────────────────────────────────────────────────────────────────
+function openNodeModal(nodeId) {
+  editingNodeId = nodeId;
+  const modal = document.getElementById('node-modal');
+  const deleteBtn = document.getElementById('btn-modal-delete');
+
+  // 重置 map-pick-hint
+  document.getElementById('map-pick-hint').textContent = '點擊地圖上任意位置可自動填入座標，或直接輸入經緯度';
+  document.getElementById('map-pick-hint').style.background = 'rgba(59,130,246,.1)';
+  document.getElementById('map-pick-hint').style.borderColor = 'rgba(59,130,246,.2)';
+  document.getElementById('map-pick-hint').style.color = '#3b82f6';
+
+  if (nodeId) {
+    // 編輯模式
+    const node = nodes.find(n => n.node_id === nodeId);
+    if (!node) return;
+    document.getElementById('modal-icon').textContent = '✏️';
+    document.getElementById('modal-title-text').textContent = '編輯銷售節點';
+    document.getElementById('m-node-id').value = node.node_id;
+    document.getElementById('m-node-id').disabled = true;
+    document.getElementById('m-name').value = node.name || '';
+    document.getElementById('m-location').value = node.location_name || '';
+    document.getElementById('m-floor').value = node.floor || '';
+    document.getElementById('m-status').value = node.status || 'active';
+    document.getElementById('m-product').value = node.product || 'banana';
+    document.getElementById('m-initial-dsl').value = node.initial_dsl || 10;
+    document.getElementById('m-base-price').value = node.base_price || 100;
+    document.getElementById('m-camera-url').value = node.camera_url || '';
+    document.getElementById('m-mqtt-topic').value = node.mqtt_topic || '';
+    document.getElementById('m-lat').value = node.lat || 22.3193;
+    document.getElementById('m-lng').value = node.lng || 114.1694;
+    deleteBtn.style.display = 'block';
+  } else {
+    // 新增模式
+    document.getElementById('modal-icon').textContent = '+';
+    document.getElementById('modal-title-text').textContent = '新增銷售節點';
+    document.getElementById('m-node-id').value = '';
+    document.getElementById('m-node-id').disabled = false;
+    document.getElementById('m-name').value = '';
+    document.getElementById('m-location').value = '';
+    document.getElementById('m-floor').value = '';
+    document.getElementById('m-status').value = 'active';
+    document.getElementById('m-product').value = 'banana';
+    document.getElementById('m-initial-dsl').value = 10;
+    document.getElementById('m-base-price').value = 100;
+    document.getElementById('m-camera-url').value = '';
+    document.getElementById('m-mqtt-topic').value = '';
+    // 使用地圖中心作為預設座標
+    const center = map.getCenter();
+    document.getElementById('m-lat').value = center.lat.toFixed(6);
+    document.getElementById('m-lng').value = center.lng.toFixed(6);
+    deleteBtn.style.display = 'none';
+  }
+
+  modal.classList.add('active');
+}
+
+function closeNodeModal() {
+  document.getElementById('node-modal').classList.remove('active');
+  editingNodeId = null;
+}
+
+function onModalProductChange() {
+  const product = document.getElementById('m-product').value;
+  document.getElementById('m-initial-dsl').value = PRODUCT_DEFAULT_DSL[product] || 10;
+}
+
+async function saveNode() {
+  const nodeId = editingNodeId || document.getElementById('m-node-id').value.trim();
+  const name   = document.getElementById('m-name').value.trim();
+
+  if (!nodeId) { alert('請填入節點 ID'); return; }
+  if (!name)   { alert('請填入節點名稱'); return; }
+
+  const payload = {
+    node_id:       nodeId,
+    name:          name,
+    location_name: document.getElementById('m-location').value.trim(),
+    floor:         document.getElementById('m-floor').value.trim(),
+    status:        document.getElementById('m-status').value,
+    product:       document.getElementById('m-product').value,
+    initial_dsl:   parseFloat(document.getElementById('m-initial-dsl').value) || 10,
+    base_price:    parseFloat(document.getElementById('m-base-price').value) || 100,
+    camera_url:    document.getElementById('m-camera-url').value.trim(),
+    mqtt_topic:    document.getElementById('m-mqtt-topic').value.trim(),
+    lat:           parseFloat(document.getElementById('m-lat').value) || 22.3193,
+    lng:           parseFloat(document.getElementById('m-lng').value) || 114.1694,
+  };
+
+  try {
+    let resp;
+    if (editingNodeId) {
+      resp = await fetch(`/api/nodes/${editingNodeId}`, {
+        method: 'PUT', headers: authHeader(), body: JSON.stringify(payload)
+      });
+    } else {
+      resp = await fetch('/api/nodes', {
+        method: 'POST', headers: authHeader(), body: JSON.stringify(payload)
+      });
+    }
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('儲存失敗：' + (err.detail || resp.status));
+      return;
+    }
+
+    closeNodeModal();
+    await loadNodes();
+
+    // 飛到新節點位置
+    map.flyTo([payload.lat, payload.lng], 17, {duration: 1.2});
+    if (markers[nodeId]) markers[nodeId].openPopup();
+  } catch(e) {
+    alert('儲存失敗：' + e.message);
+  }
+}
+
+async function deleteNode() {
+  if (!editingNodeId) return;
+  const node = nodes.find(n => n.node_id === editingNodeId);
+  if (!confirm(`確定要刪除節點「${node?.name || editingNodeId}」？此操作無法復原。`)) return;
+
+  try {
+    const resp = await fetch(`/api/nodes/${editingNodeId}`, {
+      method: 'DELETE', headers: authHeader()
+    });
+    if (!resp.ok) {
+      const err = await resp.json();
+      alert('刪除失敗：' + (err.detail || resp.status));
+      return;
+    }
+    closeNodeModal();
+    await loadNodes();
+  } catch(e) {
+    alert('刪除失敗：' + e.message);
+  }
 }
 
 // ── 相機 ──────────────────────────────────────────────────────────────────────
@@ -641,7 +935,6 @@ async function runPredict() {
 
   try {
     let d = null;
-    // 嘗試 AI 預測
     try {
       const r = await fetch('/api/predict', {
         method:'POST', headers: authHeader(), body: JSON.stringify(body)
@@ -651,7 +944,6 @@ async function runPredict() {
     } catch(e) {
       if (!e.message?.includes('503') && !e.message?.includes('fetch')) throw e;
     }
-    // 降級到純公式
     if (!d) {
       const body2 = {...body, storage_days: storageDays};
       delete body2.storage_time;
@@ -663,7 +955,7 @@ async function runPredict() {
     }
     showResult(d);
   } catch(e) {
-    errMsg.textContent = '❌ ' + e.message;
+    errMsg.textContent = '錯誤：' + e.message;
     errMsg.style.display = 'block';
   } finally {
     btn.disabled = false;
@@ -722,7 +1014,6 @@ function showResult(d) {
     badge.style.display = 'none';
   }
 
-  // 折扣表高亮
   const rows = document.querySelectorAll('#disc-table tbody tr');
   rows.forEach(r => r.classList.remove('active-row'));
   const dsl = d.dsl_combined;
@@ -745,7 +1036,6 @@ async function loadHistory() {
     const preds   = predRes.ok   ? await predRes.json()   : [];
     const sensors = sensorRes.ok ? await sensorRes.json() : [];
 
-    // 品質趨勢圖
     if (preds.length > 0) {
       document.getElementById('chart-wrap').style.display = 'block';
       const labels = preds.slice().reverse().map(p => p.recorded_at.slice(5,16));
@@ -766,13 +1056,12 @@ async function loadHistory() {
           scales:{
             x:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(51,65,85,.5)'}},
             y:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(51,65,85,.5)'},min:0,max:100},
-            y2:{position:'right',ticks:{color:'#38bdf8',font:{size:9}},grid:{display:false},min:0},
+            y2:{position:'right',ticks:{color:'#64748b',font:{size:9}},grid:{display:false},min:0},
           }
         }
       });
     }
 
-    // 感測器趨勢圖
     if (sensors.length > 0) {
       document.getElementById('chart-wrap2').style.display = 'block';
       const labels2 = sensors.slice().reverse().map(s => s.recorded_at.slice(5,16));
@@ -799,7 +1088,6 @@ async function loadHistory() {
       });
     }
 
-    // 最近評估列表
     const listEl = document.getElementById('history-list');
     if (preds.length === 0) {
       listEl.innerHTML = '<div style="text-align:center;color:#475569;font-size:.82rem;padding:20px">暫無評估記錄</div>';

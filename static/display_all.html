@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AIoT Smart Shelf — 銷售版面</title>
+<style>
+:root{
+  --bg:#0a0e1a;
+  --card:#111827;
+  --card2:#1a2235;
+  --border:#1e293b;
+  --text:#e2e8f0;
+  --muted:#64748b;
+  --blue:#3b82f6;
+  --green:#22c55e;
+  --yellow:#eab308;
+  --orange:#f97316;
+  --red:#ef4444;
+  --purple:#a855f7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Microsoft JhengHei','Segoe UI',system-ui,sans-serif;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+/* ── 頂部標題欄 ── */
+.topbar{
+  background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+  border-bottom:1px solid var(--border);
+  padding:14px 28px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-shrink:0;
+}
+.topbar-left{display:flex;align-items:center;gap:14px}
+.topbar-title{
+  font-size:1.15rem;
+  font-weight:800;
+  letter-spacing:.5px;
+  color:#fff;
+}
+.topbar-sub{font-size:.72rem;color:var(--muted);margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:16px}
+.status-dot{
+  width:9px;height:9px;border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 8px var(--green);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.clock{font-size:.88rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.update-badge{
+  font-size:.65rem;color:var(--muted);
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);
+  border-radius:999px;padding:2px 10px;
+}
+
+/* ── 控制欄 ── */
+.control-bar{
+  background:rgba(17,24,39,.8);
+  border-bottom:1px solid var(--border);
+  padding:10px 28px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+  backdrop-filter:blur(8px);
+}
+.control-label{font-size:.72rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.sort-btns{display:flex;gap:6px;flex-wrap:wrap}
+.sort-btn{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);
+  color:var(--muted);
+  padding:5px 14px;
+  border-radius:7px;
+  font-size:.75rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+  display:flex;align-items:center;gap:5px;
+}
+.sort-btn:hover{border-color:var(--blue);color:var(--blue)}
+.sort-btn.active{background:rgba(59,130,246,.15);border-color:var(--blue);color:var(--blue)}
+.sort-dir{font-size:.65rem;opacity:.7}
+.filter-btns{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.filter-btn{
+  background:rgba(255,255,255,.05);
+  border:1px solid var(--border);
+  color:var(--muted);
+  padding:5px 12px;
+  border-radius:7px;
+  font-size:.72rem;
+  font-weight:600;
+  cursor:pointer;
+  transition:all .2s;
+}
+.filter-btn:hover{border-color:var(--green);color:var(--green)}
+.filter-btn.active{background:rgba(34,197,94,.1);border-color:var(--green);color:var(--green)}
+.filter-btn.disc-filter.active{background:rgba(239,68,68,.1);border-color:var(--red);color:var(--red)}
+.node-count{font-size:.75rem;color:var(--muted);padding:5px 10px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:7px}
+
+/* ── 主體 ── */
+.main{
+  flex:1;
+  padding:20px 24px;
+  overflow-y:auto;
+}
+
+/* ── 統計列 ── */
+.stats-row{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin-bottom:20px;
+}
+.stat-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:16px 20px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+.stat-icon{
+  width:40px;height:40px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;font-weight:800;flex-shrink:0;
+}
+.stat-body{}
+.stat-val{font-size:1.5rem;font-weight:800;color:#f1f5f9;line-height:1}
+.stat-label{font-size:.68rem;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.3px}
+
+/* ── 節點卡片網格 ── */
+.node-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:16px;
+}
+
+/* ── 節點卡片 ── */
+.node-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+  overflow:hidden;
+  transition:transform .2s,box-shadow .2s;
+  position:relative;
+}
+.node-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 8px 30px rgba(0,0,0,.4);
+}
+.node-card.has-discount{
+  border-color:rgba(239,68,68,.3);
+}
+.node-card.offline{
+  opacity:.6;
+}
+
+/* 折扣角標 */
+.discount-corner{
+  position:absolute;
+  top:0;right:0;
+  background:var(--red);
+  color:#fff;
+  font-size:.7rem;
+  font-weight:800;
+  padding:4px 10px 4px 14px;
+  border-bottom-left-radius:10px;
+  letter-spacing:.3px;
+}
+
+/* 卡片頭部 */
+.card-head{
+  padding:16px 18px 12px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+}
+.card-head-left{}
+.node-name{font-size:.95rem;font-weight:700;color:#f1f5f9;line-height:1.2}
+.node-location{font-size:.72rem;color:var(--muted);margin-top:3px}
+.node-status-badge{
+  font-size:.62rem;font-weight:700;
+  padding:2px 8px;border-radius:999px;
+  flex-shrink:0;margin-top:2px;
+}
+.status-active{background:#166534;color:#bbf7d0}
+.status-inactive{background:#1e293b;color:#64748b}
+.status-maintenance{background:#713f12;color:#fde68a}
+
+/* 產品標籤 */
+.product-row{
+  padding:10px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  background:rgba(255,255,255,.02);
+  border-bottom:1px solid var(--border);
+}
+.product-name{
+  font-size:.85rem;
+  font-weight:700;
+  color:#f1f5f9;
+}
+.freshness-tag{
+  font-size:.65rem;font-weight:700;
+  padding:2px 9px;border-radius:999px;
+}
+
+/* 價格區 */
+.price-section{
+  padding:14px 18px;
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  border-bottom:1px solid var(--border);
+}
+.price-left{}
+.price-label{font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:4px}
+.price-main{display:flex;align-items:baseline;gap:4px}
+.price-currency{font-size:.9rem;font-weight:700;color:var(--yellow)}
+.price-val{font-size:2rem;font-weight:900;color:var(--yellow);line-height:1}
+.price-unit{font-size:.75rem;color:var(--muted)}
+.price-right{text-align:right}
+.price-original{font-size:.75rem;color:var(--muted);text-decoration:line-through;margin-bottom:4px}
+.discount-badge{
+  display:inline-block;
+  background:var(--red);
+  color:#fff;
+  font-size:.72rem;
+  font-weight:800;
+  padding:3px 10px;
+  border-radius:999px;
+}
+.no-discount{
+  font-size:.72rem;
+  color:var(--green);
+  font-weight:600;
+}
+
+/* 品質分數 */
+.quality-section{
+  padding:12px 18px;
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:8px;
+  border-bottom:1px solid var(--border);
+}
+.q-item{text-align:center}
+.q-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:3px}
+.q-val{font-size:1.1rem;font-weight:800}
+.q-sub{font-size:.62rem;color:var(--muted);margin-top:1px}
+
+/* 品質進度條 */
+.quality-bar-wrap{padding:0 18px 12px}
+.quality-bar-bg{
+  background:#1e293b;
+  border-radius:999px;
+  height:6px;
+  overflow:hidden;
+  border:1px solid var(--border);
+}
+.quality-bar-fill{
+  height:100%;
+  border-radius:999px;
+  transition:width 1s ease;
+}
+
+/* 感測器 */
+.sensor-row{
+  padding:10px 18px 14px;
+  display:flex;
+  gap:8px;
+}
+.sensor-item{
+  flex:1;
+  background:#0f172a;
+  border-radius:8px;
+  padding:8px;
+  text-align:center;
+}
+.sensor-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.sensor-val{font-size:.95rem;font-weight:700;color:#f1f5f9;margin-top:2px}
+.sensor-unit{font-size:.65rem;color:var(--muted)}
+
+/* DSL 標籤 */
+.dsl-row{
+  padding:0 18px 14px;
+  display:flex;
+  gap:8px;
+}
+.dsl-item{
+  flex:1;
+  background:#0f172a;
+  border-radius:8px;
+  padding:8px;
+  text-align:center;
+}
+.dsl-label{font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+.dsl-val{font-size:1rem;font-weight:800;margin-top:2px}
+.dsl-unit{font-size:.62rem;color:var(--muted)}
+
+/* 來源標籤 */
+.source-badge{
+  position:absolute;
+  bottom:10px;right:14px;
+  font-size:.6rem;font-weight:700;
+  padding:2px 7px;border-radius:999px;
+  background:rgba(59,130,246,.15);
+  border:1px solid rgba(59,130,246,.3);
+  color:var(--blue);
+}
+.source-badge.manual{
+  background:rgba(168,85,247,.15);
+  border-color:rgba(168,85,247,.3);
+  color:var(--purple);
+}
+
+/* 無數據卡片 */
+.no-data{
+  text-align:center;
+  padding:20px;
+  color:var(--muted);
+  font-size:.82rem;
+}
+
+/* 空狀態 */
+.empty-state{
+  text-align:center;
+  padding:60px 20px;
+  color:var(--muted);
+}
+.empty-state h3{font-size:1rem;color:#475569;margin-bottom:8px}
+.empty-state p{font-size:.82rem}
+
+/* 載入 */
+.loading-overlay{
+  display:flex;align-items:center;justify-content:center;
+  padding:60px;
+  color:var(--muted);
+  font-size:.88rem;
+  gap:10px;
+}
+.spinner{
+  width:18px;height:18px;
+  border:2px solid var(--border);
+  border-top-color:var(--blue);
+  border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 底部 */
+.footer{
+  background:rgba(15,23,42,.8);
+  border-top:1px solid var(--border);
+  padding:10px 28px;
+  font-size:.68rem;
+  color:var(--muted);
+  text-align:center;
+  flex-shrink:0;
+}
+
+/* 個別節點連結 */
+.btn-detail{
+  display:block;
+  text-align:center;
+  padding:8px;
+  background:rgba(59,130,246,.08);
+  border-top:1px solid var(--border);
+  color:var(--blue);
+  font-size:.72rem;
+  font-weight:600;
+  text-decoration:none;
+  transition:background .2s;
+}
+.btn-detail:hover{background:rgba(59,130,246,.15)}
+
+/* 響應式 */
+@media(max-width:900px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .node-grid{grid-template-columns:1fr}
+  .control-bar{gap:8px}
+  .filter-btns{margin-left:0}
+}
+@media(max-width:600px){
+  .stats-row{grid-template-columns:1fr 1fr}
+  .topbar{padding:10px 16px}
+  .main{padding:14px 12px}
+}
+</style>
+</head>
+<body>
+
+<!-- 頂部標題欄 -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div>
+      <div class="topbar-title">AIoT Smart Shelf — 銷售版面</div>
+      <div class="topbar-sub">智慧貨架分散式監控系統 · 即時動態定價</div>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="status-dot" id="status-dot"></div>
+    <div class="clock" id="clock">--:--:--</div>
+    <div class="update-badge" id="update-badge">等待數據…</div>
+  </div>
+</div>
+
+<!-- 控制欄 -->
+<div class="control-bar">
+  <span class="control-label">排序</span>
+  <div class="sort-btns">
+    <button class="sort-btn active" onclick="setSort('discount')" id="sort-discount">
+      折扣 <span class="sort-dir" id="dir-discount">↓</span>
+    </button>
+    <button class="sort-btn" onclick="setSort('price')" id="sort-price">
+      售價 <span class="sort-dir" id="dir-price">↑</span>
+    </button>
+    <button class="sort-btn" onclick="setSort('quality')" id="sort-quality">
+      品質 <span class="sort-dir" id="dir-quality">↓</span>
+    </button>
+    <button class="sort-btn" onclick="setSort('dsl')" id="sort-dsl">
+      剩餘壽命 <span class="sort-dir" id="dir-dsl">↓</span>
+    </button>
+    <button class="sort-btn" onclick="setSort('name')" id="sort-name">
+      名稱 <span class="sort-dir" id="dir-name">↑</span>
+    </button>
+  </div>
+  <div class="filter-btns">
+    <button class="filter-btn active" onclick="setFilter('all')" id="filter-all">全部</button>
+    <button class="filter-btn disc-filter" onclick="setFilter('discount')" id="filter-discount">有折扣</button>
+    <button class="filter-btn" onclick="setFilter('online')" id="filter-online">線上節點</button>
+  </div>
+  <div class="node-count" id="node-count">-- 個節點</div>
+</div>
+
+<!-- 主體 -->
+<div class="main">
+  <!-- 統計列 -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(59,130,246,.15);color:var(--blue)">N</div>
+      <div class="stat-body">
+        <div class="stat-val" id="stat-total">--</div>
+        <div class="stat-label">銷售節點</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(34,197,94,.15);color:var(--green)">Q</div>
+      <div class="stat-body">
+        <div class="stat-val" id="stat-avg-quality">--</div>
+        <div class="stat-label">平均品質分數</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(239,68,68,.15);color:var(--red)">%</div>
+      <div class="stat-body">
+        <div class="stat-val" id="stat-discount-count">--</div>
+        <div class="stat-label">折扣節點數</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(234,179,8,.15);color:var(--yellow)">$</div>
+      <div class="stat-body">
+        <div class="stat-val" id="stat-avg-price">--</div>
+        <div class="stat-label">平均售價 (元/kg)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 節點卡片 -->
+  <div class="node-grid" id="node-grid">
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      載入銷售數據中…
+    </div>
+  </div>
+</div>
+
+<!-- 底部 -->
+<div class="footer">
+  AIoT Smart Shelf System · CTMA IoT Lab · 數據每 10 秒自動更新
+</div>
+
+<script>
+const API_BASE = window.location.origin;
+let allNodes = [];
+let sortKey = 'discount';
+let sortDir = { discount: -1, price: 1, quality: -1, dsl: -1, name: 1 };
+let filterMode = 'all';
+
+const PRODUCT_NAMES = { banana:'香蕉', apple:'蘋果', tomato:'番茄', lettuce:'萵苣' };
+
+// ── 時鐘 ──────────────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('zh-TW', {hour12: false});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── 品質顏色 ──────────────────────────────────────────────────────────────────
+function qualityColor(q) {
+  if (q == null) return '#64748b';
+  if (q >= 90) return '#22c55e';
+  if (q >= 80) return '#84cc16';
+  if (q >= 70) return '#eab308';
+  if (q >= 60) return '#f97316';
+  return '#ef4444';
+}
+
+// ── 排序 ──────────────────────────────────────────────────────────────────────
+function setSort(key) {
+  if (sortKey === key) {
+    sortDir[key] *= -1;
+  } else {
+    sortKey = key;
+  }
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-' + key).classList.add('active');
+  // 更新方向箭頭
+  const dirs = { discount: '↓', price: '↑', quality: '↓', dsl: '↓', name: '↑' };
+  Object.keys(dirs).forEach(k => {
+    const el = document.getElementById('dir-' + k);
+    if (el) {
+      const d = sortDir[k];
+      el.textContent = k === 'price' || k === 'name' ? (d === 1 ? '↑' : '↓') : (d === -1 ? '↓' : '↑');
+    }
+  });
+  renderGrid();
+}
+
+// ── 過濾 ──────────────────────────────────────────────────────────────────────
+function setFilter(mode) {
+  filterMode = mode;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('filter-' + mode).classList.add('active');
+  renderGrid();
+}
+
+// ── 取得排序值 ────────────────────────────────────────────────────────────────
+function getSortValue(node, key) {
+  const q = node.quality;
+  switch(key) {
+    case 'discount': return q ? (q.discount_pct || 0) : 0;
+    case 'price':    return q ? (q.final_price || q.base_price || 0) : (node.base_price || 0);
+    case 'quality':  return q ? (q.quality_score || q.quality_combined || 0) : 0;
+    case 'dsl':      return q ? (q.dsl_days || q.dsl_combined || 0) : 0;
+    case 'name':     return node.name || '';
+    default: return 0;
+  }
+}
+
+// ── 渲染統計 ──────────────────────────────────────────────────────────────────
+function renderStats(nodes) {
+  const online = nodes.filter(n => n.sensor?.online);
+  const withQ  = nodes.filter(n => n.quality);
+  const avgQ   = withQ.length ? (withQ.reduce((s,n) => s + (n.quality.quality_score || n.quality.quality_combined || 0), 0) / withQ.length) : null;
+  const avgP   = withQ.length ? (withQ.reduce((s,n) => s + (n.quality.final_price || n.base_price || 0), 0) / withQ.length) : null;
+  const discCount = withQ.filter(n => (n.quality.discount_pct || 0) > 0).length;
+
+  document.getElementById('stat-total').textContent = nodes.length;
+  document.getElementById('stat-avg-quality').textContent = avgQ != null ? avgQ.toFixed(1) : '--';
+  document.getElementById('stat-discount-count').textContent = discCount;
+  document.getElementById('stat-avg-price').textContent = avgP != null ? avgP.toFixed(0) : '--';
+}
+
+// ── 渲染節點卡片 ──────────────────────────────────────────────────────────────
+function renderGrid() {
+  const grid = document.getElementById('node-grid');
+
+  // 過濾
+  let filtered = allNodes.filter(n => {
+    if (filterMode === 'online')   return n.sensor?.online;
+    if (filterMode === 'discount') return n.quality && (n.quality.discount_pct || 0) > 0;
+    return true;
+  });
+
+  // 排序
+  filtered.sort((a, b) => {
+    const va = getSortValue(a, sortKey);
+    const vb = getSortValue(b, sortKey);
+    if (typeof va === 'string') return sortDir[sortKey] * va.localeCompare(vb);
+    return sortDir[sortKey] * ((vb - va) * -1 * sortDir[sortKey] < 0 ? -1 : 1);
+  });
+
+  // 修正排序邏輯
+  filtered.sort((a, b) => {
+    const va = getSortValue(a, sortKey);
+    const vb = getSortValue(b, sortKey);
+    if (typeof va === 'string') {
+      return sortDir[sortKey] * va.localeCompare(vb, 'zh-TW');
+    }
+    return sortDir[sortKey] * (va - vb) * -1;
+  });
+
+  document.getElementById('node-count').textContent = `${filtered.length} 個節點`;
+
+  if (!filtered.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+      <h3>暫無符合條件的節點</h3>
+      <p>請調整篩選條件或等待數據更新</p>
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(node => renderNodeCard(node)).join('');
+}
+
+function renderNodeCard(node) {
+  const q = node.quality;
+  const sensor = node.sensor || {};
+  const ai = node.ai || {};
+  const statusClass = node.status === 'active' ? 'status-active' : node.status === 'maintenance' ? 'status-maintenance' : 'status-inactive';
+  const statusText  = node.status === 'active' ? '線上' : node.status === 'maintenance' ? '維護中' : '離線';
+  const productName = PRODUCT_NAMES[node.product] || node.product;
+  const isOffline = !sensor.online;
+  const hasDiscount = q && (q.discount_pct || 0) > 0;
+  const source = ai.source || 'auto';
+
+  // 品質數據
+  const qualityScore = q ? (q.quality_score || q.quality_combined || 0) : null;
+  const qualityAI    = q ? (q.quality_ai || null) : null;
+  const qualityFormula = q ? (q.quality_formula || null) : null;
+  const dslDays      = q ? (q.dsl_days || q.dsl_combined || null) : null;
+  const finalPrice   = q ? (q.final_price || node.base_price) : node.base_price;
+  const discountPct  = q ? (q.discount_pct || 0) : 0;
+  const freshnessLabel = q ? (q.freshness_label || '') : '';
+  const freshnessColor = q ? (q.freshness_color || '#64748b') : '#64748b';
+  const qColor = qualityColor(qualityScore);
+
+  // 新鮮度標籤背景色
+  const freshBg = freshnessColor + '22';
+  const freshBorder = freshnessColor + '55';
+
+  // 溫濕度
+  const temp = sensor.temperature != null ? sensor.temperature.toFixed(1) + '°C' : '--';
+  const hum  = sensor.humidity    != null ? sensor.humidity.toFixed(1) + '%' : '--';
+
+  return `
+<div class="node-card${hasDiscount?' has-discount':''}${isOffline?' offline':''}">
+  ${hasDiscount ? `<div class="discount-corner">-${discountPct}% OFF</div>` : ''}
+  
+  <!-- 卡片頭部 -->
+  <div class="card-head">
+    <div class="card-head-left">
+      <div class="node-name">${node.name}</div>
+      <div class="node-location">${node.location_name || '未設定位置'}</div>
+    </div>
+    <span class="node-status-badge ${statusClass}">${statusText}</span>
+  </div>
+
+  <!-- 產品行 -->
+  <div class="product-row">
+    <div class="product-name">${productName}</div>
+    ${freshnessLabel ? `<span class="freshness-tag" style="background:${freshBg};border:1px solid ${freshBorder};color:${freshnessColor}">${freshnessLabel}</span>` : '<span class="freshness-tag" style="background:#1e293b;color:#64748b">等待數據</span>'}
+  </div>
+
+  <!-- 價格區 -->
+  <div class="price-section">
+    <div class="price-left">
+      <div class="price-label">動態售價</div>
+      <div class="price-main">
+        <span class="price-currency">$</span>
+        <span class="price-val">${finalPrice != null ? finalPrice.toFixed(0) : '--'}</span>
+        <span class="price-unit">/kg</span>
+      </div>
+    </div>
+    <div class="price-right">
+      <div class="price-original">原價 $${node.base_price}/kg</div>
+      ${discountPct > 0
+        ? `<span class="discount-badge">-${discountPct}% OFF</span>`
+        : `<span class="no-discount">無折扣</span>`}
+    </div>
+  </div>
+
+  <!-- 品質分數 -->
+  ${q ? `
+  <div class="quality-section">
+    <div class="q-item">
+      <div class="q-label">AI 品質</div>
+      <div class="q-val" style="color:#8b5cf6">${qualityAI != null ? qualityAI.toFixed(0) : 'N/A'}</div>
+      <div class="q-sub">Q_AI</div>
+    </div>
+    <div class="q-item">
+      <div class="q-label">公式 Q(t)</div>
+      <div class="q-val" style="color:#3b82f6">${qualityFormula != null ? qualityFormula.toFixed(0) : '--'}</div>
+      <div class="q-sub">論文公式</div>
+    </div>
+    <div class="q-item">
+      <div class="q-label">複合評分</div>
+      <div class="q-val" style="color:${qColor}">${qualityScore != null ? qualityScore.toFixed(0) : '--'}</div>
+      <div class="q-sub">Q_combined</div>
+    </div>
+  </div>
+  <div class="quality-bar-wrap">
+    <div class="quality-bar-bg">
+      <div class="quality-bar-fill" style="width:${qualityScore || 0}%;background:${qColor}"></div>
+    </div>
+  </div>
+  ` : `<div class="no-data">尚無品質評估數據</div>`}
+
+  <!-- DSL -->
+  ${q && dslDays != null ? `
+  <div class="dsl-row">
+    <div class="dsl-item">
+      <div class="dsl-label">剩餘貨架壽命</div>
+      <div class="dsl-val" style="color:#facc15">${dslDays.toFixed(1)}</div>
+      <div class="dsl-unit">天 (DSL)</div>
+    </div>
+    <div class="dsl-item">
+      <div class="dsl-label">折扣原因</div>
+      <div class="dsl-val" style="font-size:.72rem;color:#94a3b8;font-weight:600;line-height:1.3;margin-top:4px">${q.discount_reason || '無折扣'}</div>
+    </div>
+  </div>
+  ` : ''}
+
+  <!-- 感測器 -->
+  <div class="sensor-row">
+    <div class="sensor-item">
+      <div class="sensor-label">溫度</div>
+      <div class="sensor-val" style="color:#f97316">${temp}</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-label">濕度</div>
+      <div class="sensor-val" style="color:#3b82f6">${hum}</div>
+    </div>
+    <div class="sensor-item">
+      <div class="sensor-label">感測器</div>
+      <div class="sensor-val" style="color:${sensor.online?'#22c55e':'#ef4444'};font-size:.8rem">${sensor.online?'線上':'離線'}</div>
+    </div>
+  </div>
+
+  <!-- 來源標籤 -->
+  <span class="source-badge${source==='manual'||source==='manual_predict'?' manual':''}">
+    ${source==='manual'||source==='manual_predict' ? '手動評估' : '自動推理'}
+  </span>
+
+  <!-- 詳情連結 -->
+  <a class="btn-detail" href="/display/${node.node_id}" target="_blank">
+    查看詳細報價牌 →
+  </a>
+</div>`;
+}
+
+// ── 載入數據 ──────────────────────────────────────────────────────────────────
+async function loadData() {
+  try {
+    const r = await fetch(`${API_BASE}/api/display/all`);
+    if (!r.ok) throw new Error('API error ' + r.status);
+    const data = await r.json();
+    allNodes = data.nodes || [];
+
+    renderStats(allNodes);
+    renderGrid();
+
+    document.getElementById('status-dot').className = 'status-dot';
+    document.getElementById('update-badge').textContent =
+      '更新於 ' + new Date().toLocaleTimeString('zh-TW', {hour12:false});
+  } catch(e) {
+    console.error('Load error:', e);
+    document.getElementById('status-dot').className = 'status-dot offline';
+    document.getElementById('update-badge').textContent = '連線失敗';
+  }
+}
+
+// ── 啟動 ──────────────────────────────────────────────────────────────────────
+loadData();
+setInterval(loadData, 10000);
+</script>
+</body>
+</html>
