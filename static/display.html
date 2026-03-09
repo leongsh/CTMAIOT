@@ -213,6 +213,54 @@
   .sensor-card.light::before{background:linear-gradient(90deg,#eab308,#f97316)}
   .sensor-card.air::before{background:linear-gradient(90deg,#a855f7,#06b6d4)}
   .sensor-icon{font-size:1.6rem;margin-bottom:8px}
+
+  /* 光照等級指示器 */
+  .light-scale{
+    margin-top:8px;
+    width:100%;
+  }
+  .light-scale-bar{
+    position:relative;
+    height:8px;
+    border-radius:4px;
+    background:linear-gradient(90deg,
+      #1e293b 0%,
+      #334155 5%,
+      #1d4ed8 15%,
+      #0ea5e9 30%,
+      #eab308 50%,
+      #f97316 70%,
+      #ef4444 100%);
+    overflow:visible;
+  }
+  .light-scale-pointer{
+    position:absolute;
+    top:-4px;
+    width:4px;
+    height:16px;
+    background:#fff;
+    border-radius:2px;
+    transform:translateX(-50%);
+    box-shadow:0 0 6px rgba(255,255,255,.8);
+    transition:left .6s ease;
+  }
+  .light-scale-labels{
+    display:flex;
+    justify-content:space-between;
+    margin-top:4px;
+    font-size:.5rem;
+    color:var(--muted);
+  }
+  .light-level-badge{
+    display:inline-block;
+    font-size:.6rem;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:999px;
+    margin-top:5px;
+    letter-spacing:.3px;
+    transition:background .6s,color .6s;
+  }
   .sensor-val{
     font-size:1.9rem;
     font-weight:800;
@@ -389,6 +437,20 @@
           <span class="sensor-unit">lux</span>
         </div>
         <div class="sensor-name">LIGHT INTENSITY</div>
+        <!-- 光照等級進度條 -->
+        <div class="light-scale">
+          <div class="light-scale-bar">
+            <div class="light-scale-pointer" id="light-pointer" style="left:0%"></div>
+          </div>
+          <div class="light-scale-labels">
+            <span>0</span>
+            <span>1k</span>
+            <span>10k</span>
+            <span>50k</span>
+            <span>100k+</span>
+          </div>
+        </div>
+        <span class="light-level-badge" id="light-level-badge" style="background:#33415533;color:#94a3b8">--</span>
         <div class="sensor-mini-chart">
           <canvas id="chart-light"></canvas>
         </div>
@@ -662,6 +724,9 @@ async function fetchAndUpdate() {
     document.getElementById('s-light').textContent = light != null ? Math.round(light) : '--';
     document.getElementById('s-air').textContent   = air   != null ? air.toFixed(2)   : '--';
 
+    // 光照等級指示器更新
+    if (light != null) updateLightScale(light);
+
     // 迷你圖推入
     if (temp  != null) pushMiniChart('chart-temp',  temp);
     if (hum   != null) pushMiniChart('chart-hum',   hum);
@@ -761,6 +826,62 @@ async function fetchAndUpdate() {
     console.error('Fetch error:', err);
     document.getElementById('update-badge').textContent = '連線失敗，重試中…';
     document.getElementById('status-dot').className = 'status-dot offline';
+  }
+}
+
+// ── 光照等級指示器 ────────────────────────────────────────────────────────────
+// 尺度：對數尺度 0-100k lux 映射到 0-100%
+// 分段：黑暗(<100) / 昏暗(100-500) / 一般室內(500-2k) / 明亮室內(2k-10k) / 強光(10k-50k) / 直射陽光(>50k)
+function updateLightScale(lux) {
+  // 對數映射：將 0-100000 lux 映射到 0-100%
+  // 使用分段線性映射，讓低光區間也有足夠分辨率
+  const segments = [
+    { max: 100,    pct: 5  },   // 0-100 lux → 0-5%
+    { max: 500,    pct: 15 },   // 100-500 → 5-15%
+    { max: 2000,   pct: 30 },   // 500-2k → 15-30%
+    { max: 10000,  pct: 55 },   // 2k-10k → 30-55%
+    { max: 50000,  pct: 80 },   // 10k-50k → 55-80%
+    { max: 100000, pct: 100 },  // 50k-100k → 80-100%
+  ];
+
+  let pct = 0;
+  const prevMax = [0, 100, 500, 2000, 10000, 50000];
+  const prevPct = [0, 5,   15,  30,   55,    80];
+  for (let i = 0; i < segments.length; i++) {
+    if (lux <= segments[i].max) {
+      const ratio = (lux - prevMax[i]) / (segments[i].max - prevMax[i]);
+      pct = prevPct[i] + ratio * (segments[i].pct - prevPct[i]);
+      break;
+    }
+    pct = segments[i].pct;
+  }
+  pct = Math.max(0, Math.min(100, pct));
+
+  // 更新指针位置
+  const pointer = document.getElementById('light-pointer');
+  if (pointer) pointer.style.left = pct + '%';
+
+  // 判斷等級
+  let level, bg, color;
+  if (lux < 100) {
+    level = '🌙 黑暗'; bg = '#1e293b'; color = '#94a3b8';
+  } else if (lux < 500) {
+    level = '💡 昏暗'; bg = '#1e3a5f'; color = '#60a5fa';
+  } else if (lux < 2000) {
+    level = '🏢 一般室內'; bg = '#1e3a5f'; color = '#38bdf8';
+  } else if (lux < 10000) {
+    level = '🛒 明亮室內'; bg = '#3d2e00'; color = '#eab308';
+  } else if (lux < 50000) {
+    level = '☀️ 強光'; bg = '#431407'; color = '#fb923c';
+  } else {
+    level = '🔥 直射陽光'; bg = '#450a0a'; color = '#f87171';
+  }
+
+  const badge = document.getElementById('light-level-badge');
+  if (badge) {
+    badge.textContent = level;
+    badge.style.background = bg;
+    badge.style.color = color;
   }
 }
 
