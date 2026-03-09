@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # 優先使用 DATABASE_URL 環境變數（Render 設定），否則使用 Supabase 預設
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
-    "postgresql://postgres.gcoowcpdzalfbvurvibf:TFy032nWioYRKw52@aws-1-ap-southeast-2.pooler.supabase.com:5432/postgres"
+    "postgresql://postgres.yvnbqgueimhykvcplzzl:CTMAiot%40SG2026%21@aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres"
 )
 
 # ─── 連線池（全域單例）────────────────────────────────────────────────────────
