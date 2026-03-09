@@ -172,7 +172,9 @@ def on_message(client, userdata, msg):
         ts = now_hkt()
         temp  = float(data.get("temp", data.get("temperature", 0)))
         hum   = float(data.get("hum",  data.get("humidity", 0)))
-        light = float(data.get("light", data.get("light_lux", 375)))
+        light_raw = float(data.get("light", data.get("light_lux", 375)))
+        # M5GO 光照感測器輸出為反向 ADC（0-65535），數値越大越暗，需反轉
+        light = max(0.0, 65535.0 - light_raw)
         pres  = float(data.get("pres",  data.get("pressure", 1013.0)))
         air   = float(data.get("air_velocity", 0.22))
 
@@ -661,7 +663,8 @@ class NodeRequest(BaseModel):
     floor: str = ""
     product: str = "banana"
     initial_dsl: float = 10.0
-    days_stored: float = 1.0
+    storage_date: Optional[str] = None   # 'YYYY-MM-DD' 入庫日期
+    days_stored: float = 1.0             # 由後端依 storage_date 自動計算
     base_price: float = 100.0
     camera_url: str = ""
     mqtt_topic: str = ""
@@ -679,9 +682,26 @@ async def list_nodes(current_user: dict = Depends(get_current_user)):
     return nodes
 
 
+def _calc_days_stored(storage_date_str: Optional[str]) -> float:
+    """依入庫日期計算已存放天數（整數天）"""
+    if not storage_date_str:
+        return 1.0
+    try:
+        from datetime import date
+        sd = date.fromisoformat(storage_date_str)
+        diff = (date.today() - sd).days
+        return float(max(0, diff))
+    except Exception:
+        return 1.0
+
+
 @app.post("/api/nodes")
 async def create_node(req: NodeRequest, admin: dict = Depends(require_admin)):
-    upsert_node(req.dict())
+    data = req.dict()
+    # 自動依入庫日期計算已存放天數
+    if data.get("storage_date"):
+        data["days_stored"] = _calc_days_stored(data["storage_date"])
+    upsert_node(data)
     # 初始化感測器快取
     sensor_cache[req.node_id] = {"temperature": None, "humidity": None, "timestamp": None}
     # 更新 MQTT 主題對應表
@@ -691,9 +711,12 @@ async def create_node(req: NodeRequest, admin: dict = Depends(require_admin)):
 
 @app.put("/api/nodes/{node_id}")
 async def update_node(node_id: str, req: NodeRequest, admin: dict = Depends(require_admin)):
-    req_dict = req.dict()
-    req_dict["node_id"] = node_id
-    upsert_node(req_dict)
+    data = req.dict()
+    data["node_id"] = node_id
+    # 自動依入庫日期計算已存放天數
+    if data.get("storage_date"):
+        data["days_stored"] = _calc_days_stored(data["storage_date"])
+    upsert_node(data)
     # 更新 MQTT 主題對應表
     _refresh_mqtt_topic_map()
     return {"message": f"節點 {node_id} 已更新"}

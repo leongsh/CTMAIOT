@@ -585,8 +585,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
         <input class="modal-input" id="m-initial-dsl" type="number" value="10" min="1" max="60"/>
       </div>
       <div>
-        <label class="modal-label">目前已儲存天數</label>
-        <input class="modal-input" id="m-days-stored" type="number" value="1" min="0" max="60" step="0.5"/>
+        <label class="modal-label">入庫日期</label>
+        <input class="modal-input" id="m-storage-date" type="date" onchange="updateDaysStoredDisplay()"/>
+        <div style="font-size:.72rem;color:#64748b;margin-top:4px">已存放天數：<span id="m-days-stored-display" style="color:#facc15;font-weight:700">--</span> 天</div>
       </div>
       <div>
         <label class="modal-label">基礎售價（元/kg）</label>
@@ -1024,7 +1025,19 @@ function openNodeModal(nodeId) {
     document.getElementById('m-status').value = node.status || 'active';
     document.getElementById('m-product').value = node.product || 'banana';
     document.getElementById('m-initial-dsl').value = node.initial_dsl || 10;
-    document.getElementById('m-days-stored').value = node.days_stored || 1;
+    // 入庫日期：從 storage_date 或由 days_stored 倒推
+    const storageDateEl = document.getElementById('m-storage-date');
+    if (node.storage_date) {
+      storageDateEl.value = node.storage_date; // 'YYYY-MM-DD'
+    } else if (node.days_stored) {
+      // 舊資料倒推入庫日期
+      const d = new Date();
+      d.setDate(d.getDate() - Math.round(node.days_stored));
+      storageDateEl.value = d.toISOString().slice(0, 10);
+    } else {
+      storageDateEl.value = new Date().toISOString().slice(0, 10);
+    }
+    updateDaysStoredDisplay();
     document.getElementById('m-base-price').value = node.base_price || 100;
     document.getElementById('m-camera-url').value = node.camera_url || '';
     document.getElementById('m-mqtt-topic').value = node.mqtt_topic || '';
@@ -1044,7 +1057,8 @@ function openNodeModal(nodeId) {
     document.getElementById('m-status').value = 'active';
     document.getElementById('m-product').value = 'banana';
     document.getElementById('m-initial-dsl').value = 10;
-    document.getElementById('m-days-stored').value = 1;
+    document.getElementById('m-storage-date').value = new Date().toISOString().slice(0, 10);
+    updateDaysStoredDisplay();
     document.getElementById('m-base-price').value = 100;
     document.getElementById('m-camera-url').value = '';
     document.getElementById('m-mqtt-topic').value = '';
@@ -1074,6 +1088,27 @@ function onModalProductChange() {
   document.getElementById('m-initial-dsl').value = PRODUCT_DEFAULT_DSL[product] || 10;
 }
 
+// 計算入庫日期至今天的天數
+function calcDaysStored(dateStr) {
+  if (!dateStr) return 0;
+  const storageDate = new Date(dateStr);
+  const today = new Date();
+  // 只計日期差（去除時間部分）
+  storageDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  const diffMs = today - storageDate;
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  return Math.max(0, diffDays);
+}
+
+// 更新已存放天數顯示
+function updateDaysStoredDisplay() {
+  const dateStr = document.getElementById('m-storage-date')?.value;
+  const days = calcDaysStored(dateStr);
+  const displayEl = document.getElementById('m-days-stored-display');
+  if (displayEl) displayEl.textContent = days;
+}
+
 async function saveNode() {
   const nodeId = editingNodeId || document.getElementById('m-node-id').value.trim();
   const name   = document.getElementById('m-name').value.trim();
@@ -1089,7 +1124,8 @@ async function saveNode() {
     status:        document.getElementById('m-status').value,
     product:       document.getElementById('m-product').value,
     initial_dsl:   parseFloat(document.getElementById('m-initial-dsl').value) || 10,
-    days_stored:   parseFloat(document.getElementById('m-days-stored').value) || 1,
+    storage_date:  document.getElementById('m-storage-date').value || new Date().toISOString().slice(0, 10),
+    days_stored:   calcDaysStored(document.getElementById('m-storage-date').value),
     base_price:    parseFloat(document.getElementById('m-base-price').value) || 100,
     camera_url:    document.getElementById('m-camera-url').value.trim(),
     mqtt_topic:    document.getElementById('m-mqtt-topic').value.trim(),

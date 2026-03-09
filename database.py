@@ -140,6 +140,8 @@ def init_db():
                 floor        TEXT    DEFAULT '',
                 product      TEXT    DEFAULT 'banana',
                 initial_dsl  REAL    DEFAULT 10.0,
+                storage_date DATE    DEFAULT NULL,
+                days_stored  REAL    DEFAULT 1.0,
                 base_price   REAL    DEFAULT 100.0,
                 camera_url   TEXT    DEFAULT '',
                 mqtt_topic   TEXT    DEFAULT '',
@@ -226,6 +228,7 @@ def init_db():
         for col, col_type in [
             ('days_stored',  'REAL DEFAULT 1.0'),
             ('blynk_token',  "TEXT DEFAULT ''"),
+            ('storage_date', 'DATE DEFAULT NULL'),
         ]:
             try:
                 cur.execute(f"ALTER TABLE nodes ADD COLUMN IF NOT EXISTS {col} {col_type}")
@@ -276,9 +279,9 @@ def upsert_node(data: dict):
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO nodes (node_id, name, location_name, lat, lng, floor, product,
-                               initial_dsl, days_stored, base_price, camera_url, mqtt_topic, blynk_token, status)
+                               initial_dsl, storage_date, days_stored, base_price, camera_url, mqtt_topic, blynk_token, status)
             VALUES (%(node_id)s, %(name)s, %(location_name)s, %(lat)s, %(lng)s, %(floor)s,
-                    %(product)s, %(initial_dsl)s, %(days_stored)s, %(base_price)s, %(camera_url)s,
+                    %(product)s, %(initial_dsl)s, %(storage_date)s, %(days_stored)s, %(base_price)s, %(camera_url)s,
                     %(mqtt_topic)s, %(blynk_token)s, %(status)s)
             ON CONFLICT (node_id) DO UPDATE SET
                 name=EXCLUDED.name,
@@ -288,6 +291,7 @@ def upsert_node(data: dict):
                 floor=EXCLUDED.floor,
                 product=EXCLUDED.product,
                 initial_dsl=EXCLUDED.initial_dsl,
+                storage_date=EXCLUDED.storage_date,
                 days_stored=EXCLUDED.days_stored,
                 base_price=EXCLUDED.base_price,
                 camera_url=EXCLUDED.camera_url,
