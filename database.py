@@ -265,9 +265,9 @@ def upsert_node(data: dict):
         cur = conn.cursor()
         cur.execute("""
             INSERT INTO nodes (node_id, name, location_name, lat, lng, floor, product,
-                               initial_dsl, base_price, camera_url, mqtt_topic, status)
+                               initial_dsl, days_stored, base_price, camera_url, mqtt_topic, status)
             VALUES (%(node_id)s, %(name)s, %(location_name)s, %(lat)s, %(lng)s, %(floor)s,
-                    %(product)s, %(initial_dsl)s, %(base_price)s, %(camera_url)s,
+                    %(product)s, %(initial_dsl)s, %(days_stored)s, %(base_price)s, %(camera_url)s,
                     %(mqtt_topic)s, %(status)s)
             ON CONFLICT (node_id) DO UPDATE SET
                 name=EXCLUDED.name,
@@ -277,6 +277,7 @@ def upsert_node(data: dict):
                 floor=EXCLUDED.floor,
                 product=EXCLUDED.product,
                 initial_dsl=EXCLUDED.initial_dsl,
+                days_stored=EXCLUDED.days_stored,
                 base_price=EXCLUDED.base_price,
                 camera_url=EXCLUDED.camera_url,
                 mqtt_topic=EXCLUDED.mqtt_topic,

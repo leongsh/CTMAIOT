@@ -293,9 +293,10 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
         img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
 
         model_hum     = hum / 100.0 if hum > 1.0 else hum
-        storage_days  = ai_cache.get(node_id, {}).get("storage_days", 1.0)
-        storage_hours = storage_days * 24.0
-        raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
+        # 優先從節點設定讀取已儲存天數，其次從 ai_cache，預設 1.0
+        storage_days  = float(node.get("days_stored") or ai_cache.get(node_id, {}).get("storage_days") or 1.0)
+        # storage_hours = storage_days * 24.0 # No longer used in model
+        raw_sensor    = np.array([[temp, model_hum]], dtype=np.float32)
         scaled_sensor = scaler.transform(raw_sensor)
         sensor_tensor = torch.tensor(scaled_sensor, dtype=torch.float32).to(DEVICE)
 
@@ -654,6 +655,7 @@ class NodeRequest(BaseModel):
     floor: str = ""
     product: str = "banana"
     initial_dsl: float = 10.0
+    days_stored: float = 1.0
     base_price: float = 100.0
     camera_url: str = ""
     mqtt_topic: str = ""

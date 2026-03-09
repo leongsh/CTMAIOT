@@ -462,6 +462,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
         <input class="modal-input" id="m-initial-dsl" type="number" value="10" min="1" max="60"/>
       </div>
       <div>
+        <label class="modal-label">目前已儲存天數</label>
+        <input class="modal-input" id="m-days-stored" type="number" value="1" min="0" max="60" step="0.5"/>
+      </div>
+      <div>
         <label class="modal-label">基礎售價（元/kg）</label>
         <input class="modal-input" id="m-base-price" type="number" value="100" min="1"/>
       </div>
@@ -890,6 +894,7 @@ function openNodeModal(nodeId) {
     document.getElementById('m-status').value = node.status || 'active';
     document.getElementById('m-product').value = node.product || 'banana';
     document.getElementById('m-initial-dsl').value = node.initial_dsl || 10;
+    document.getElementById('m-days-stored').value = node.days_stored || 1;
     document.getElementById('m-base-price').value = node.base_price || 100;
     document.getElementById('m-camera-url').value = node.camera_url || '';
     document.getElementById('m-mqtt-topic').value = node.mqtt_topic || '';
@@ -908,6 +913,7 @@ function openNodeModal(nodeId) {
     document.getElementById('m-status').value = 'active';
     document.getElementById('m-product').value = 'banana';
     document.getElementById('m-initial-dsl').value = 10;
+    document.getElementById('m-days-stored').value = 1;
     document.getElementById('m-base-price').value = 100;
     document.getElementById('m-camera-url').value = '';
     document.getElementById('m-mqtt-topic').value = '';
@@ -951,6 +957,7 @@ async function saveNode() {
     status:        document.getElementById('m-status').value,
     product:       document.getElementById('m-product').value,
     initial_dsl:   parseFloat(document.getElementById('m-initial-dsl').value) || 10,
+    days_stored:   parseFloat(document.getElementById('m-days-stored').value) || 1,
     base_price:    parseFloat(document.getElementById('m-base-price').value) || 100,
     camera_url:    document.getElementById('m-camera-url').value.trim(),
     mqtt_topic:    document.getElementById('m-mqtt-topic').value.trim(),
