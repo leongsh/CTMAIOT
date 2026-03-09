@@ -1496,12 +1496,16 @@ async def login_page():
 
 @app.get("/app")
 async def app_page():
-    return FileResponse("static/app.html")
-
-
+    return FileResponse(
+        "static/app.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+    )
 @app.get("/admin")
 async def admin_page():
-    return FileResponse("static/admin.html")
+    return FileResponse(
+        "static/admin.html",
+        headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
+    )
 
 
 @app.get("/display/all")
