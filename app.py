@@ -74,7 +74,7 @@ from database import (
     insert_reading, insert_prediction,
     get_node_readings, get_node_predictions,
     get_dashboard_stats, verify_password, _hash_password,
-    get_db,
+    get_db, DATABASE_URL,
 )
 from auth import (
     create_access_token, decode_token, authenticate_user,
@@ -104,14 +104,17 @@ logger.info("Using device: %s", DEVICE)
 sensor_cache: dict = {
     "NODE_ISM_001": {"temperature": None, "humidity": None, "timestamp": None}
 }
+
+# MQTT 主題 → node_id 的記憶體快取（避免每次收到訊息都查 DB）
+# 格式：{"m5go/ISM/env": "NODE_ISM_001", ...}
+_mqtt_topic_map: dict = {}
 model_ai: HybridModel = None
 scaler = None
 
 # AI 推理結果快取：{node_id: {spoilage, label, color, timestamp, quality_data}}
 ai_cache: dict = {}
 
-# PostgreSQL 連線字串（與 database.py 共用）
-from database import DATABASE_URL
+# DATABASE_URL 已在上方 import 中引入
 
 # 模型版本管理
 MODEL_BACKUP_DIR = "./model_versions"
@@ -136,19 +139,32 @@ infer_transform = transforms.Compose([
 ])
 
 # ─── MQTT 背景訂閱 ───────────────────────────────────────────────────────────
+def _refresh_mqtt_topic_map():
+    """從資料庫更新 MQTT 主題→node_id 對應表（只在連線時或節點變更時呼叫）"""
+    global _mqtt_topic_map
+    try:
+        nodes = get_all_nodes()
+        new_map = {}
+        for n in nodes:
+            topic = n.get("mqtt_topic", "").strip()
+            if topic:
+                new_map[topic] = n["node_id"]
+        _mqtt_topic_map = new_map
+        logger.info("MQTT topic map refreshed: %s", _mqtt_topic_map)
+    except Exception as e:
+        logger.warning("_refresh_mqtt_topic_map error: %s", e)
+
+
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
         logger.info("MQTT connected, subscribing to %s", MQTT_TOPIC)
         client.subscribe(MQTT_TOPIC)
-        # 訂閱所有節點的 MQTT 主題
-        try:
-            nodes = get_all_nodes()
-            for n in nodes:
-                if n.get("mqtt_topic") and n["mqtt_topic"] != MQTT_TOPIC:
-                    client.subscribe(n["mqtt_topic"])
-                    logger.info("Also subscribing: %s", n["mqtt_topic"])
-        except Exception:
-            pass
+        # 更新主題對應表並訂閱所有節點主題
+        _refresh_mqtt_topic_map()
+        for topic, node_id in _mqtt_topic_map.items():
+            if topic != MQTT_TOPIC:
+                client.subscribe(topic)
+                logger.info("Also subscribing: %s -> %s", topic, node_id)
     else:
         logger.warning("MQTT connect failed, rc=%s", rc)
 
@@ -162,29 +178,21 @@ def on_message(client, userdata, msg):
         temp = float(data.get("temp", data.get("temperature", 0)))
         hum  = float(data.get("hum",  data.get("humidity", 0)))
 
-        # 找到對應節點
-        node_id = "NODE_ISM_001"
-        try:
-            nodes = get_all_nodes()
-            for n in nodes:
-                if n.get("mqtt_topic") == msg.topic:
-                    node_id = n["node_id"]
-                    break
-        except Exception:
-            pass
+        # 從記憶體快取查找對應 node_id（不查 DB，避免 1.5 秒延遲）
+        node_id = _mqtt_topic_map.get(msg.topic, "NODE_ISM_001")
 
         sensor_cache[node_id] = {
             "temperature": temp,
             "humidity":    hum,
             "timestamp":   ts,
         }
-        # 自動記錄到資料庫
+        # 自動記錄到資料庫（使用連線池，快速完成）
         try:
             insert_reading(node_id, temp, hum)
         except Exception as e:
             logger.debug("Insert reading error: %s", e)
 
-        logger.debug("Sensor[%s] updated: T=%.1f H=%.1f", node_id, temp, hum)
+        logger.info("Sensor[%s] T=%.1f H=%.1f", node_id, temp, hum)
     except Exception as e:
         logger.error("MQTT parse error: %s", e)
 
@@ -355,56 +363,51 @@ def auto_ai_inference_loop():
 app = FastAPI(title="AIoT Smart Shelf API", version="4.1.0")
 
 
-# ── ai_cache 持久化函數（PostgreSQL）────────────────────────────────────────────────────────────────────
+# ── ai_cache 持久化函數（PostgreSQL，使用連線池）──────────────────────────────
 def _init_ai_cache_db():
     """初始化 ai_cache 持久化資料表（PostgreSQL）"""
     import json
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS ai_cache (
-                node_id    TEXT PRIMARY KEY,
-                data       TEXT NOT NULL,
-                updated_at TIMESTAMP DEFAULT NOW()
-            )
-        """)
-        conn.commit()
-        conn.close()
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ai_cache (
+                    node_id    TEXT PRIMARY KEY,
+                    data       TEXT NOT NULL,
+                    updated_at TIMESTAMP DEFAULT NOW()
+                )
+            """)
         logger.info("ai_cache table initialized in PostgreSQL")
     except Exception as e:
         logger.warning("_init_ai_cache_db error: %s", e)
 
 
 def save_ai_cache_to_db(node_id: str, result: dict):
-    """將單一節點的 ai_cache 寫入持久化 PostgreSQL"""
+    """將單一節點的 ai_cache 寫入持久化 PostgreSQL（使用連線池）"""
     import json
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO ai_cache (node_id, data, updated_at)
-            VALUES (%s, %s, NOW())
-            ON CONFLICT (node_id) DO UPDATE SET
-                data = EXCLUDED.data,
-                updated_at = NOW()
-        """, (node_id, json.dumps(result, ensure_ascii=False)))
-        conn.commit()
-        conn.close()
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO ai_cache (node_id, data, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (node_id) DO UPDATE SET
+                    data = EXCLUDED.data,
+                    updated_at = NOW()
+            """, (node_id, json.dumps(result, ensure_ascii=False)))
     except Exception as e:
         logger.debug("save_ai_cache_to_db error: %s", e)
 
 
 def load_ai_cache_from_db():
-    """從 PostgreSQL 載入 ai_cache"""
+    """從 PostgreSQL 載入 ai_cache（使用連線池）"""
     import json
     global ai_cache
     try:
-        conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        cur.execute("SELECT node_id, data FROM ai_cache")
-        rows = cur.fetchall()
-        conn.close()
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute("SELECT node_id, data FROM ai_cache")
+            rows = cur.fetchall()
         for row in rows:
             try:
                 ai_cache[row[0]] = json.loads(row[1])
@@ -454,6 +457,34 @@ async def startup():
     ai_thread.start()
     logger.info("Auto AI inference thread started (interval=10s)")
 
+    # 啟動 Keep-Alive 執行緒（每 14 分鐘 ping 自己，防止 Render 免費方案冷啟動）
+    ka_thread = threading.Thread(target=_keep_alive_loop, daemon=True)
+    ka_thread.start()
+    logger.info("Keep-alive thread started")
+
+
+# ─── Keep-Alive（防止 Render 免費方案 15 分鐘冷啟動）────────────────────────────
+def _keep_alive_loop():
+    """每 14 分鐘 ping 自己的健康檢查端點，防止 Render 休眠"""
+    import requests as _req
+    # 等待服務完全啟動
+    time.sleep(60)
+    base_url = os.environ.get("RENDER_EXTERNAL_URL", "http://localhost:8000")
+    ping_url = f"{base_url}/api/health"
+    while True:
+        try:
+            r = _req.get(ping_url, timeout=10)
+            logger.debug("Keep-alive ping: %s %s", ping_url, r.status_code)
+        except Exception as e:
+            logger.debug("Keep-alive ping failed: %s", e)
+        time.sleep(14 * 60)  # 每 14 分鐘
+
+
+@app.get("/api/health")
+async def health_check():
+    """健康檢查端點（Keep-Alive 使用）"""
+    return {"status": "ok", "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Layer 3 — 認證 API
@@ -479,12 +510,10 @@ async def login(req: LoginRequest):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="帳號或密碼錯誤",
         )
-    # 更新最後登入時間
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("UPDATE users SET last_login=NOW() WHERE username=%s", (req.username,))
-    conn.commit()
-    conn.close()
+    # 更新最後登入時間（使用連線池）
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("UPDATE users SET last_login=NOW() WHERE username=%s", (req.username,))
 
     token = create_access_token({"sub": user["username"], "role": user["role"]})
     return {
@@ -510,11 +539,10 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 @app.get("/api/auth/users")
 async def list_users(admin: dict = Depends(require_admin)):
-    conn = get_db()
-    cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT id, username, role, display_name, created_at, last_login FROM users ORDER BY id")
-    rows = cur.fetchall()
-    conn.close()
+    with get_db() as conn:
+        cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT id, username, role, display_name, created_at, last_login FROM users ORDER BY id")
+        rows = cur.fetchall()
     return [dict(r) for r in rows]
 
 
@@ -523,29 +551,23 @@ async def create_user(req: CreateUserRequest, admin: dict = Depends(require_admi
     # 角色驗證：只允許 admin 或 user
     if req.role not in ("admin", "user"):
         raise HTTPException(status_code=400, detail="角色必須為 admin 或 user")
-    conn = get_db()
-    cur = conn.cursor()
     try:
-        cur.execute(
-            "INSERT INTO users (username, password, role, display_name) VALUES (%s, %s, %s, %s)",
-            (req.username, _hash_password(req.password), req.role, req.display_name)
-        )
-        conn.commit()
+        with get_db() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO users (username, password, role, display_name) VALUES (%s, %s, %s, %s)",
+                (req.username, _hash_password(req.password), req.role, req.display_name)
+            )
     except psycopg2.errors.UniqueViolation:
-        conn.rollback()
         raise HTTPException(status_code=400, detail="用戶名稱已存在")
-    finally:
-        conn.close()
     return {"message": f"用戶 {req.username} 已建立，角色：{req.role}"}
 
 
 @app.delete("/api/auth/users/{user_id}")
 async def delete_user(user_id: int, admin: dict = Depends(require_admin)):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE id=%s AND username != 'admin'", (user_id,))
-    conn.commit()
-    conn.close()
+    with get_db() as conn:
+        cur = conn.cursor()
+        cur.execute("DELETE FROM users WHERE id=%s AND username != 'admin'", (user_id,))
     return {"message": "用戶已刪除"}
 
 
@@ -583,6 +605,8 @@ async def create_node(req: NodeRequest, admin: dict = Depends(require_admin)):
     upsert_node(req.dict())
     # 初始化感測器快取
     sensor_cache[req.node_id] = {"temperature": None, "humidity": None, "timestamp": None}
+    # 更新 MQTT 主題對應表
+    _refresh_mqtt_topic_map()
     return {"message": f"節點 {req.node_id} 已建立/更新"}
 
 
@@ -591,6 +615,8 @@ async def update_node(node_id: str, req: NodeRequest, admin: dict = Depends(requ
     req_dict = req.dict()
     req_dict["node_id"] = node_id
     upsert_node(req_dict)
+    # 更新 MQTT 主題對應表
+    _refresh_mqtt_topic_map()
     return {"message": f"節點 {node_id} 已更新"}
 
 
@@ -599,6 +625,8 @@ async def delete_node(node_id: str, admin: dict = Depends(require_admin)):
     from database import delete_node as db_delete_node
     db_delete_node(node_id)
     sensor_cache.pop(node_id, None)
+    # 更新 MQTT 主題對應表
+    _refresh_mqtt_topic_map()
     return {"message": f"節點 {node_id} 已刪除"}
 
 
