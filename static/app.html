@@ -826,6 +826,11 @@ async function loadNodes(retries=2) {
       renderMapMarkers();
       updateNodeSelects();
       updateMapStats();
+      // 如果品質評估頁面已選擇節點，自動重新填入表單（確保 initial_dsl 和 storage_date 是最新已儲存值）
+      const assessSelect = document.getElementById('assess-node-select');
+      if (assessSelect && assessSelect.value) {
+        selectNode(assessSelect.value);
+      }
       return;
     } catch(e) {
       if (attempt < retries) { await new Promise(res => setTimeout(res, 1000)); continue; }
