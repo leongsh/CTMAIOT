@@ -408,7 +408,7 @@ def auto_ai_inference_loop():
 
 
 # ─── FastAPI 應用程式 ─────────────────────────────────────────────────────────
-app = FastAPI(title="AIoT Smart Shelf API", version="4.1.0")
+app = FastAPI(title="AIoT Smart Shelf API", version="4.1.1")
 
 
 # ── ai_cache 持久化函數（PostgreSQL，使用連線池）──────────────────────────────
