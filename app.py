@@ -34,6 +34,7 @@ import threading
 import logging
 import os
 import hashlib
+import base64
 import psycopg2
 import psycopg2.extras
 from datetime import datetime, timezone, timedelta
@@ -257,7 +258,7 @@ def start_mqtt():
 
 
 # ─── AI 自動推理背景任務 ─────────────────────────────────────────────────────
-AI_INFER_INTERVAL = 1800  # 秒（30 分鐘）
+AI_INFER_INTERVAL = 7200  # 秒（2 小時）
 
 
 def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
@@ -288,7 +289,8 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
 
     # 取得相機 URL
     cam_url = node.get("camera_url") or CAMERA_URL
-    camera_snapshot_url = cam_url  # 記錄快照 URL（帶時間戳）
+    camera_snapshot_url = None
+    camera_image_base64 = None  # 儲存圖片的 Base64 字串
 
     try:
         resp = requests.get(cam_url, timeout=8)
@@ -297,11 +299,24 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
         # 快照 URL 加入時間戳以區分不同時間的快照
         ts_param = int(time.time())
         camera_snapshot_url = f"{cam_url}?_snap={ts_param}" if cam_url else None
+        # 將圖片壓縮後轉為 Base64 字串儲存（JPEG 品質 70％，約 30-80KB）
+        try:
+            buf = io.BytesIO()
+            # 先將圖片縮放到 640x480 以減少儲存空間
+            img_save = image.copy()
+            img_save.thumbnail((640, 480), Image.LANCZOS)
+            img_save.save(buf, format="JPEG", quality=70, optimize=True)
+            camera_image_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+            logger.info("AI inference [%s] camera image captured: %d bytes (base64)", node_id, len(camera_image_base64))
+        except Exception as b64_err:
+            logger.warning("AI inference [%s] base64 encode error: %s", node_id, b64_err)
+            camera_image_base64 = None
     except Exception as e:
         logger.warning("AI inference [%s] camera fetch failed: %s — using blank image fallback", node_id, e)
         # 相機失敗時使用空白圖片繼續推理（不中斷評估）
         image = Image.new("RGB", (224, 224), color=(128, 128, 128))
         camera_snapshot_url = None
+        camera_image_base64 = None
 
     try:
         img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
@@ -369,7 +384,7 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
     # 持久化到 DB
     save_ai_cache_to_db(node_id, result)
 
-    # 自動記錄到資料庫（每 30 分鐘推理時記錄，包含相機快照 URL）
+    # 自動記錄到資料庫（每 2 小時推理時記錄，包含相機圖片 Base64）
     if quality_data:
         try:
             insert_prediction(node_id, {
@@ -387,7 +402,10 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
                 "freshness_label":       quality_data["freshness_label"],
                 "product":               product,
                 "camera_snapshot_url":   camera_snapshot_url,
+                "camera_image_base64":   camera_image_base64,
             })
+            logger.info("Auto-save prediction [%s] OK (image=%s)", node_id,
+                        "yes" if camera_image_base64 else "no")
         except Exception as e:
             logger.debug("Auto-save prediction error: %s", e)
 
@@ -395,7 +413,7 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
 
 
 def auto_ai_inference_loop():
-    """背景執行緒：每 30 分鐘對所有節點執行 AI 推理並記錄相機快照"""
+    """背景執行緒：每 2 小時對所有節點執行 AI 推理並儲存相機圖片 Base64"""
     # 等待系統完全啟動（模型載入、DB 初始化）
     time.sleep(15)
     logger.info("Auto AI inference loop started")

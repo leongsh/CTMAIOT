@@ -185,8 +185,9 @@ def init_db():
                 final_price     REAL,
                 freshness_label TEXT,
                 product         TEXT,
-                camera_snapshot_url TEXT DEFAULT NULL,
-                recorded_at     TIMESTAMP DEFAULT NOW()
+                camera_snapshot_url  TEXT DEFAULT NULL,
+                camera_image_base64  TEXT DEFAULT NULL,
+                recorded_at          TIMESTAMP DEFAULT NOW()
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_pred_node ON predictions(node_id)")
@@ -196,6 +197,13 @@ def init_db():
             cur.execute("""
                 ALTER TABLE predictions
                 ADD COLUMN IF NOT EXISTS camera_snapshot_url TEXT DEFAULT NULL
+            """)
+        except Exception:
+            pass
+        try:
+            cur.execute("""
+                ALTER TABLE predictions
+                ADD COLUMN IF NOT EXISTS camera_image_base64 TEXT DEFAULT NULL
             """)
         except Exception:
             pass
@@ -383,13 +391,15 @@ def insert_prediction(node_id: str, data: dict):
             INSERT INTO predictions
                 (node_id, storage_days, temperature, humidity, ai_spoilage, quality_ai,
                  quality_formula, quality_combined, dsl_combined, discount_pct,
-                 base_price, final_price, freshness_label, product, camera_snapshot_url)
+                 base_price, final_price, freshness_label, product,
+                 camera_snapshot_url, camera_image_base64)
             VALUES
                 (%(node_id)s, %(storage_days)s, %(temperature)s, %(humidity)s,
                  %(ai_spoilage)s, %(quality_ai)s, %(quality_formula)s, %(quality_combined)s,
                  %(dsl_combined)s, %(discount_pct)s, %(base_price)s, %(final_price)s,
-                 %(freshness_label)s, %(product)s, %(camera_snapshot_url)s)
-        """, {"node_id": node_id, "camera_snapshot_url": None, **data})
+                 %(freshness_label)s, %(product)s,
+                 %(camera_snapshot_url)s, %(camera_image_base64)s)
+        """, {"node_id": node_id, "camera_snapshot_url": None, "camera_image_base64": None, **data})
 
 
 def get_node_readings(node_id: str, limit: int = 100):
