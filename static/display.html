@@ -754,7 +754,7 @@ function updateGauge(score) {
   gaugeChart.data.datasets[0].backgroundColor = [color, '#1e293b'];
   gaugeChart.update();
   const el = document.getElementById('quality-score');
-  el.textContent = Math.round(score);
+  el.textContent = score.toFixed(1);
   el.style.color = color;
 }
 

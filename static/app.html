@@ -394,20 +394,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
         <div class="result-panel" id="result-panel">
           <div class="assess-title">評估結果</div>
           <div id="sensor-source-notice" style="display:none;font-size:12px;padding:6px 10px;border-radius:6px;background:rgba(0,0,0,0.2);margin-bottom:10px"></div>
-          <div class="score-trio">
-            <div class="score-box">
-              <div class="score-box-label">AI 品質</div>
-              <div class="score-box-val" id="r-ai" style="color:#8b5cf6">--</div>
-              <div class="score-box-sub">Q_AI</div>
-            </div>
-            <div class="score-box">
-              <div class="score-box-label">公式 Q(t)</div>
-              <div class="score-box-val" id="r-formula" style="color:#3b82f6">--</div>
-              <div class="score-box-sub">論文公式</div>
-            </div>
-            <div class="score-box combined">
+          <!-- 隱藏 AI 品質和公式 Q(t)，保留 DOM 元素供 JS 更新 -->
+          <div id="r-ai" style="display:none">--</div>
+          <div id="r-formula" style="display:none">--</div>
+          <div class="score-trio" style="grid-template-columns:1fr">
+            <div class="score-box combined" style="text-align:center">
               <div class="score-box-label">複合評分</div>
-              <div class="score-box-val" id="r-combined" style="color:#facc15">--</div>
+              <div class="score-box-val" id="r-combined" style="color:#facc15;font-size:2.2rem">--</div>
               <div class="score-box-sub">Q_combined</div>
             </div>
           </div>

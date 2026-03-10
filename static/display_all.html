@@ -688,22 +688,12 @@ function renderNodeCard(node) {
     </div>
   </div>
 
-  <!-- 品質分數 -->
+  <!-- 品質分數：只顯示複合評分 -->
   ${q ? `
-  <div class="quality-section">
+  <div class="quality-section" style="grid-template-columns:1fr;">
     <div class="q-item">
-      <div class="q-label">AI 品質</div>
-      <div class="q-val" style="color:#8b5cf6">${qualityAI != null ? qualityAI.toFixed(0) : 'N/A'}</div>
-      <div class="q-sub">Q_AI</div>
-    </div>
-    <div class="q-item">
-      <div class="q-label">公式 Q(t)</div>
-      <div class="q-val" style="color:#3b82f6">${qualityFormula != null ? qualityFormula.toFixed(0) : '--'}</div>
-      <div class="q-sub">論文公式</div>
-    </div>
-    <div class="q-item">
-      <div class="q-label">複合評分</div>
-      <div class="q-val" style="color:${qColor}">${qualityScore != null ? qualityScore.toFixed(0) : '--'}</div>
+      <div class="q-label">複合品質評分</div>
+      <div class="q-val" style="color:${qColor};font-size:1.6rem">${qualityScore != null ? qualityScore.toFixed(1) : '--'}</div>
       <div class="q-sub">Q_combined</div>
     </div>
   </div>
