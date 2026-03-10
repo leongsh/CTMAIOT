@@ -1511,13 +1511,11 @@ async def admin_page():
 @app.get("/display/all")
 async def display_all_page():
     """公開銷售排行版面（免登入，顯示所有節點）"""
-    return FileResponse("static/display_all.html")
-
-
+    return FileResponse("static/display_all.html", headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
 @app.get("/display/{node_id}")
 async def display_page(node_id: str):
     """公開報價牌頁面（免登入）"""
-    return FileResponse("static/display.html")
+    return FileResponse("static/display.html", headers={"Cache-Control": "no-store, no-cache, must-revalidate"})
 
 
 if __name__ == "__main__":
