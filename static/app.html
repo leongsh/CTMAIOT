@@ -102,6 +102,36 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .ctrl-status-dot.active{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6)}
 .ctrl-status-dot.error{background:#ef4444}
 .ctrl-region-info{font-size:.65rem;color:#334155;text-align:center;margin-top:8px}
+/* ── 遠端控制兩欄佈局 ── */
+.ctrl-layout{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.ctrl-left-col,.ctrl-right-col{display:flex;flex-direction:column;gap:0}
+@media(max-width:700px){.ctrl-layout{grid-template-columns:1fr}}
+/* 雲台伺服器控制 */
+.ctrl-servo-section{margin-bottom:16px}
+.ctrl-servo-val-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.ctrl-servo-val{font-size:1.4rem;font-weight:800;color:#a78bfa;font-variant-numeric:tabular-nums}
+.ctrl-servo-unit{font-size:.7rem;color:#64748b;margin-left:2px}
+.ctrl-servo-slider{width:100%;height:6px;border-radius:3px;outline:none;-webkit-appearance:none;appearance:none;cursor:pointer;accent-color:#a78bfa;margin-bottom:3px}
+.ctrl-servo-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:#a78bfa;cursor:pointer;box-shadow:0 0 8px rgba(168,139,250,.5)}
+.ctrl-servo-slider::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:#a78bfa;cursor:pointer;border:none}
+.ctrl-servo-ticks{display:flex;justify-content:space-between;font-size:.5rem;color:#334155;margin-top:2px}
+.ctrl-servo-preset-row{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.ctrl-servo-preset{flex:1;min-width:40px;padding:4px 6px;border-radius:6px;border:1px solid rgba(168,139,250,.3);background:rgba(168,139,250,.08);color:#a78bfa;font-size:.65rem;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}
+.ctrl-servo-preset:hover{background:rgba(168,139,250,.2)}
+/* 相機面板 */
+.ctrl-camera-panel{background:#0f172a;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.ctrl-camera-header{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--border)}
+.ctrl-camera-title{font-size:.68rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:flex;align-items:center;gap:5px}
+.ctrl-camera-live-dot{width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px rgba(34,197,94,.6);animation:ctrlpulse 2s infinite}
+@keyframes ctrlpulse{0%,100%{opacity:1}50%{opacity:.3}}
+.ctrl-camera-img-wrap{position:relative;background:#020617;min-height:160px;display:flex;align-items:center;justify-content:center}
+.ctrl-camera-img-wrap img{width:100%;display:block;max-height:260px;object-fit:contain}
+.ctrl-camera-placeholder{color:#334155;font-size:.75rem;text-align:center;padding:20px;flex-direction:column;display:flex;align-items:center;gap:8px}
+.ctrl-camera-footer{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:.65rem;color:#475569;border-top:1px solid var(--border)}
+/* 遠端控制節點選擇 */
+.ctrl-node-select-row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
+.ctrl-node-select-row select{flex:1;background:#0f172a;border:1px solid var(--border);border-radius:8px;color:#f1f5f9;font-size:.82rem;padding:7px 10px;outline:none}
+.ctrl-node-select-row select:focus{border-color:var(--blue)}
 /* ── 品質評估面板 ── */
 .assess-section{margin-bottom:18px}
 .assess-title{font-size:.75rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;display:flex;align-items:center;gap:6px}
@@ -438,78 +468,194 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
       <div class="tab-pane" id="tab-ctrl">
         <div class="ctrl-panel-header">🕹️ IoT 遠端控制</div>
 
+        <!-- 節點選擇列 -->
+        <div class="ctrl-node-select-row">
+          <select id="ctrl-node-select" onchange="onCtrlNodeChange()">
+            <option value="">— 請選擇節點 —</option>
+          </select>
+        </div>
+
         <!-- 節點資訊卡片 -->
         <div class="ctrl-node-info">
-          <div class="ctrl-node-name" id="ctrl-node-name">ISM 智慧貨架 #1</div>
-          <div class="ctrl-node-token">Blynk 主機： sgp1.blynk.cloud</div>
+          <div class="ctrl-node-name" id="ctrl-node-name">請選擇節點</div>
+          <div class="ctrl-node-token" id="ctrl-node-token">Blynk 主機： sgp1.blynk.cloud</div>
         </div>
 
-        <!-- Y 軸：前後 -->
-        <div class="ctrl-axis-section">
-          <div class="ctrl-axis-label">
-            <span class="axis-dot" style="background:#22c55e"></span>
-            Y Axis &mdash; 前後移動
-          </div>
-          <div class="ctrl-btn-row">
-            <button class="ctrl-btn ctrl-btn-y" id="btn-fwd"
-              onmousedown="ctrlPress('V1',1,'btn-fwd')" onmouseup="ctrlRelease('V1','btn-fwd')" onmouseleave="ctrlRelease('V1','btn-fwd')"
-              ontouchstart="ctrlPress('V1',1,'btn-fwd')" ontouchend="ctrlRelease('V1','btn-fwd')">
-              <span class="ctrl-btn-icon">↑</span>FWD
-            </button>
-            <button class="ctrl-btn ctrl-btn-y" id="btn-rev"
-              onmousedown="ctrlPress('V2',1,'btn-rev')" onmouseup="ctrlRelease('V2','btn-rev')" onmouseleave="ctrlRelease('V2','btn-rev')"
-              ontouchstart="ctrlPress('V2',1,'btn-rev')" ontouchend="ctrlRelease('V2','btn-rev')">
-              <span class="ctrl-btn-icon">↓</span>REV
-            </button>
-          </div>
-        </div>
+        <!-- 兩欄佈局 -->
+        <div class="ctrl-layout">
 
-        <!-- X 軸：左右 -->
-        <div class="ctrl-axis-section">
-          <div class="ctrl-axis-label">
-            <span class="axis-dot" style="background:#3b82f6"></span>
-            X Axis &mdash; 左右移動
-          </div>
-          <div class="ctrl-btn-row">
-            <button class="ctrl-btn ctrl-btn-x" id="btn-left"
-              onmousedown="ctrlPress('V3',1,'btn-left')" onmouseup="ctrlRelease('V3','btn-left')" onmouseleave="ctrlRelease('V3','btn-left')"
-              ontouchstart="ctrlPress('V3',1,'btn-left')" ontouchend="ctrlRelease('V3','btn-left')">
-              <span class="ctrl-btn-icon">←</span>LEFT
-            </button>
-            <button class="ctrl-btn ctrl-btn-x" id="btn-right"
-              onmousedown="ctrlPress('V4',1,'btn-right')" onmouseup="ctrlRelease('V4','btn-right')" onmouseleave="ctrlRelease('V4','btn-right')"
-              ontouchstart="ctrlPress('V4',1,'btn-right')" ontouchend="ctrlRelease('V4','btn-right')">
-              <span class="ctrl-btn-icon">→</span>RIGHT
-            </button>
-          </div>
-        </div>
+          <!-- 左欄：步進馬達 + 雲台伺服器 -->
+          <div class="ctrl-left-col">
 
-        <!-- Z 軸：上下 -->
-        <div class="ctrl-axis-section">
-          <div class="ctrl-axis-label">
-            <span class="axis-dot" style="background:#f97316"></span>
-            Z Axis &mdash; 上下移動
-          </div>
-          <div class="ctrl-btn-row">
-            <button class="ctrl-btn ctrl-btn-z" id="btn-up"
-              onmousedown="ctrlPress('V5',1,'btn-up')" onmouseup="ctrlRelease('V5','btn-up')" onmouseleave="ctrlRelease('V5','btn-up')"
-              ontouchstart="ctrlPress('V5',1,'btn-up')" ontouchend="ctrlRelease('V5','btn-up')">
-              <span class="ctrl-btn-icon">▲</span>UP
-            </button>
-            <button class="ctrl-btn ctrl-btn-z" id="btn-down"
-              onmousedown="ctrlPress('V6',1,'btn-down')" onmouseup="ctrlRelease('V6','btn-down')" onmouseleave="ctrlRelease('V6','btn-down')"
-              ontouchstart="ctrlPress('V6',1,'btn-down')" ontouchend="ctrlRelease('V6','btn-down')">
-              <span class="ctrl-btn-icon">▼</span>DOWN
-            </button>
-          </div>
-        </div>
+            <!-- Y 軸：前後 -->
+            <div class="ctrl-axis-section">
+              <div class="ctrl-axis-label">
+                <span class="axis-dot" style="background:#22c55e"></span>
+                Y Axis &mdash; 前後移動
+              </div>
+              <div class="ctrl-btn-row">
+                <button class="ctrl-btn ctrl-btn-y" id="btn-fwd"
+                  onmousedown="ctrlPress('V1',1,'btn-fwd')" onmouseup="ctrlRelease('V1','btn-fwd')" onmouseleave="ctrlRelease('V1','btn-fwd')"
+                  ontouchstart="ctrlPress('V1',1,'btn-fwd')" ontouchend="ctrlRelease('V1','btn-fwd')">
+                  <span class="ctrl-btn-icon">↑</span>FWD
+                </button>
+                <button class="ctrl-btn ctrl-btn-y" id="btn-rev"
+                  onmousedown="ctrlPress('V2',1,'btn-rev')" onmouseup="ctrlRelease('V2','btn-rev')" onmouseleave="ctrlRelease('V2','btn-rev')"
+                  ontouchstart="ctrlPress('V2',1,'btn-rev')" ontouchend="ctrlRelease('V2','btn-rev')">
+                  <span class="ctrl-btn-icon">↓</span>REV
+                </button>
+              </div>
+            </div>
 
-        <!-- 狀態列 -->
-        <div class="ctrl-status-bar">
-          <div class="ctrl-status-dot" id="ctrl-status-dot"></div>
-          <span id="ctrl-status-text">Ready — 請按下按鈕發送指令</span>
-        </div>
-        <div class="ctrl-region-info">🌐 連線至 sgp1.blynk.cloud &nbsp;·&nbsp; 按下發送 1，放開發送 0</div>
+            <!-- X 軸：左右 -->
+            <div class="ctrl-axis-section">
+              <div class="ctrl-axis-label">
+                <span class="axis-dot" style="background:#3b82f6"></span>
+                X Axis &mdash; 左右移動
+              </div>
+              <div class="ctrl-btn-row">
+                <button class="ctrl-btn ctrl-btn-x" id="btn-left"
+                  onmousedown="ctrlPress('V3',1,'btn-left')" onmouseup="ctrlRelease('V3','btn-left')" onmouseleave="ctrlRelease('V3','btn-left')"
+                  ontouchstart="ctrlPress('V3',1,'btn-left')" ontouchend="ctrlRelease('V3','btn-left')">
+                  <span class="ctrl-btn-icon">←</span>LEFT
+                </button>
+                <button class="ctrl-btn ctrl-btn-x" id="btn-right"
+                  onmousedown="ctrlPress('V4',1,'btn-right')" onmouseup="ctrlRelease('V4','btn-right')" onmouseleave="ctrlRelease('V4','btn-right')"
+                  ontouchstart="ctrlPress('V4',1,'btn-right')" ontouchend="ctrlRelease('V4','btn-right')">
+                  <span class="ctrl-btn-icon">→</span>RIGHT
+                </button>
+              </div>
+            </div>
+
+            <!-- Z 軸：上下 -->
+            <div class="ctrl-axis-section">
+              <div class="ctrl-axis-label">
+                <span class="axis-dot" style="background:#f97316"></span>
+                Z Axis &mdash; 上下移動
+              </div>
+              <div class="ctrl-btn-row">
+                <button class="ctrl-btn ctrl-btn-z" id="btn-up"
+                  onmousedown="ctrlPress('V5',1,'btn-up')" onmouseup="ctrlRelease('V5','btn-up')" onmouseleave="ctrlRelease('V5','btn-up')"
+                  ontouchstart="ctrlPress('V5',1,'btn-up')" ontouchend="ctrlRelease('V5','btn-up')">
+                  <span class="ctrl-btn-icon">▲</span>UP
+                </button>
+                <button class="ctrl-btn ctrl-btn-z" id="btn-down"
+                  onmousedown="ctrlPress('V6',1,'btn-down')" onmouseup="ctrlRelease('V6','btn-down')" onmouseleave="ctrlRelease('V6','btn-down')"
+                  ontouchstart="ctrlPress('V6',1,'btn-down')" ontouchend="ctrlRelease('V6','btn-down')">
+                  <span class="ctrl-btn-icon">▼</span>DOWN
+                </button>
+              </div>
+            </div>
+
+            <!-- 雲台伺服器 A（Pan 水平旋轉）-->
+            <div class="ctrl-servo-section">
+              <div class="ctrl-axis-label">
+                <span class="axis-dot" style="background:#a78bfa"></span>
+                Servo A &mdash; Pan（水平旋轉）V7
+              </div>
+              <div class="ctrl-servo-val-row">
+                <span style="font-size:.65rem;color:#64748b">角度</span>
+                <span><span class="ctrl-servo-val" id="servo-a-val">90</span><span class="ctrl-servo-unit">°</span></span>
+              </div>
+              <input type="range" class="ctrl-servo-slider" id="servo-a-slider"
+                min="0" max="180" value="90"
+                oninput="ctrlServoInput('servo-a-val', this.value)"
+                onchange="ctrlServoSend('V7', this.value)"/>
+              <div class="ctrl-servo-ticks">
+                <span>0°</span><span>45°</span><span>90°</span><span>135°</span><span>180°</span>
+              </div>
+              <div class="ctrl-servo-preset-row">
+                <button class="ctrl-servo-preset" onclick="ctrlServoPreset('servo-a-slider','servo-a-val','V7',0)">0°</button>
+                <button class="ctrl-servo-preset" onclick="ctrlServoPreset('servo-a-slider','servo-a-val','V7',45)">45°</button>
+                <button class="ctrl-servo-preset" onclick="ctrlServoPreset('servo-a-slider','servo-a-val','V7',90)">90°</button>
+                <button class="ctrl-servo-preset" onclick="ctrlServoPreset('servo-a-slider','servo-a-val','V7',135)">135°</button>
+                <button class="ctrl-servo-preset" onclick="ctrlServoPreset('servo-a-slider','servo-a-val','V7',180)">180°</button>
+              </div>
+            </div>
+
+            <!-- 雲台伺服器 B（Tilt 垂直俯仰）-->
+            <div class="ctrl-servo-section">
+              <div class="ctrl-axis-label">
+                <span class="axis-dot" style="background:#c084fc"></span>
+                Servo B &mdash; Tilt（垂直俯仰）V8
+              </div>
+              <div class="ctrl-servo-val-row">
+                <span style="font-size:.65rem;color:#64748b">角度</span>
+                <span><span class="ctrl-servo-val" id="servo-b-val" style="color:#c084fc">90</span><span class="ctrl-servo-unit">°</span></span>
+              </div>
+              <input type="range" class="ctrl-servo-slider" id="servo-b-slider"
+                min="0" max="180" value="90"
+                oninput="ctrlServoInput('servo-b-val', this.value)"
+                onchange="ctrlServoSend('V8', this.value)"
+                style="accent-color:#c084fc"/>
+              <div class="ctrl-servo-ticks">
+                <span>0°</span><span>45°</span><span>90°</span><span>135°</span><span>180°</span>
+              </div>
+              <div class="ctrl-servo-preset-row">
+                <button class="ctrl-servo-preset" style="border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08);color:#c084fc" onclick="ctrlServoPreset('servo-b-slider','servo-b-val','V8',0)">0°</button>
+                <button class="ctrl-servo-preset" style="border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08);color:#c084fc" onclick="ctrlServoPreset('servo-b-slider','servo-b-val','V8',45)">45°</button>
+                <button class="ctrl-servo-preset" style="border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08);color:#c084fc" onclick="ctrlServoPreset('servo-b-slider','servo-b-val','V8',90)">90°</button>
+                <button class="ctrl-servo-preset" style="border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08);color:#c084fc" onclick="ctrlServoPreset('servo-b-slider','servo-b-val','V8',135)">135°</button>
+                <button class="ctrl-servo-preset" style="border-color:rgba(192,132,252,.3);background:rgba(192,132,252,.08);color:#c084fc" onclick="ctrlServoPreset('servo-b-slider','servo-b-val','V8',180)">180°</button>
+              </div>
+            </div>
+
+            <!-- 狀態列 -->
+            <div class="ctrl-status-bar">
+              <div class="ctrl-status-dot" id="ctrl-status-dot"></div>
+              <span id="ctrl-status-text">Ready — 請按下按鈕發送指令</span>
+            </div>
+            <div class="ctrl-region-info">🌐 連線至 sgp1.blynk.cloud &nbsp;·&nbsp; 步進馬達：按下=1/放開=0 &nbsp;·&nbsp; 伺服器：放開發送角度</div>
+
+          </div><!-- /ctrl-left-col -->
+
+          <!-- 右欄：相機畫面 -->
+          <div class="ctrl-right-col">
+            <div class="ctrl-camera-panel">
+              <div class="ctrl-camera-header">
+                <div class="ctrl-camera-title">
+                  <div class="ctrl-camera-live-dot" id="ctrl-cam-live-dot"></div>
+                  📷 相機畫面
+                </div>
+                <button class="btn-nav" style="padding:3px 10px;font-size:.65rem" onclick="ctrlRefreshCamera()">🔄 重新整理</button>
+              </div>
+              <div class="ctrl-camera-img-wrap" id="ctrl-cam-wrap">
+                <div class="ctrl-camera-placeholder" id="ctrl-cam-placeholder">
+                  <span style="font-size:2rem">📷</span>
+                  <span>請先選擇節點以顯示相機畫面</span>
+                </div>
+                <img id="ctrl-camera-img" src="" alt="相機畫面" style="display:none"/>
+              </div>
+              <div class="ctrl-camera-footer">
+                <span class="ctrl-camera-ts" id="ctrl-cam-ts">尚未載入</span>
+                <span id="ctrl-cam-node-label" style="color:#334155">—</span>
+              </div>
+            </div>
+
+            <!-- 快速定位按鈕 -->
+            <div style="margin-top:10px">
+              <div class="ctrl-axis-label" style="margin-bottom:8px">
+                <span>🎯</span> 雲台快速定位
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+                <button class="ctrl-btn" style="background:linear-gradient(135deg,#4c1d95,#6d28d9);padding:10px 6px;font-size:.75rem"
+                  onclick="ctrlServoBoth(90,90)">⊙ 中心</button>
+                <button class="ctrl-btn" style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);padding:10px 6px;font-size:.75rem"
+                  onclick="ctrlServoBoth(0,90)">◁ 左轉</button>
+                <button class="ctrl-btn" style="background:linear-gradient(135deg,#1e3a5f,#1d4ed8);padding:10px 6px;font-size:.75rem"
+                  onclick="ctrlServoBoth(180,90)">▷ 右轉</button>
+                <button class="ctrl-btn" style="background:linear-gradient(135deg,#1c3a1c,#15803d);padding:10px 6px;font-size:.75rem"
+                  onclick="ctrlServoBoth(90,45)">△ 仰視</button>
+                <button class="ctrl-btn" style="background:linear-gradient(135deg,#3b1c1c,#c2410c);padding:10px 6px;font-size:.75rem"
+                  onclick="ctrlServoBoth(90,135)">▽ 俯視</button>
+                <button class="ctrl-btn" style="background:linear-gradient(135deg,#1c2a3a,#0e7490);padding:10px 6px;font-size:.75rem"
+                  onclick="ctrlRefreshCamera()">📷 拍照</button>
+              </div>
+            </div>
+
+          </div><!-- /ctrl-right-col -->
+
+        </div><!-- /ctrl-layout -->
       </div>
     </div>
   </div>
@@ -826,6 +972,7 @@ async function loadNodes(retries=2) {
       renderMapMarkers();
       updateNodeSelects();
       updateMapStats();
+      syncCtrlNodeSelect();
       // 如果品質評估頁面已選擇節點，自動重新填入表單（確保 initial_dsl 和 storage_date 是最新已儲存值）
       const assessSelect = document.getElementById('assess-node-select');
       if (assessSelect && assessSelect.value) {
@@ -1656,6 +1803,180 @@ function ctrlRelease(pin, btnId) {
     .catch(err => {
       console.error('Blynk release error:', err);
     });
+}
+
+// ── 雲台伺服器控制函數 ─────────────────────────────────────────────────────────
+// 即時更新顯示數值（拖動時）
+function ctrlServoInput(valId, value) {
+  document.getElementById(valId).textContent = value;
+}
+
+// 放開滑桿時發送角度值
+function ctrlServoSend(pin, value) {
+  if (!ctrlToken) {
+    showToast('請先選擇具有控制權限的節點', 'error');
+    return;
+  }
+  const dot = document.getElementById('ctrl-status-dot');
+  const txt = document.getElementById('ctrl-status-text');
+  dot.className = 'ctrl-status-dot active';
+  txt.textContent = `發送伺服器: ${pin} = ${value}° ...`;
+  const url = `https://${BLYNK_REGION}/external/api/update?token=${ctrlToken}&${pin}=${value}`;
+  fetch(url, { mode: 'no-cors' })
+    .then(() => {
+      txt.textContent = `伺服器已設定: ${pin} = ${value}° ✓`;
+      dot.className = 'ctrl-status-dot';
+      console.log(`Blynk Servo: ${pin}=${value}`);
+    })
+    .catch(err => {
+      dot.className = 'ctrl-status-dot error';
+      txt.textContent = `發送失敗！請檢查網路`;
+      console.error('Blynk servo error:', err);
+    });
+}
+
+// 快速預設角度按鈕
+function ctrlServoPreset(sliderId, valId, pin, angle) {
+  const slider = document.getElementById(sliderId);
+  if (slider) slider.value = angle;
+  document.getElementById(valId).textContent = angle;
+  ctrlServoSend(pin, angle);
+}
+
+// 同時設定兩個伺服器（快速定位）
+function ctrlServoBoth(panAngle, tiltAngle) {
+  if (!ctrlToken) {
+    showToast('請先選擇具有控制權限的節點', 'error');
+    return;
+  }
+  // 更新 UI
+  const sliderA = document.getElementById('servo-a-slider');
+  const sliderB = document.getElementById('servo-b-slider');
+  if (sliderA) sliderA.value = panAngle;
+  if (sliderB) sliderB.value = tiltAngle;
+  document.getElementById('servo-a-val').textContent = panAngle;
+  document.getElementById('servo-b-val').textContent = tiltAngle;
+  // 依序發送
+  const dot = document.getElementById('ctrl-status-dot');
+  const txt = document.getElementById('ctrl-status-text');
+  dot.className = 'ctrl-status-dot active';
+  txt.textContent = `快速定位: Pan=${panAngle}° Tilt=${tiltAngle}° ...`;
+  const urlA = `https://${BLYNK_REGION}/external/api/update?token=${ctrlToken}&V7=${panAngle}`;
+  const urlB = `https://${BLYNK_REGION}/external/api/update?token=${ctrlToken}&V8=${tiltAngle}`;
+  Promise.all([
+    fetch(urlA, { mode: 'no-cors' }),
+    fetch(urlB, { mode: 'no-cors' })
+  ]).then(() => {
+    txt.textContent = `定位完成: Pan=${panAngle}° Tilt=${tiltAngle}° ✓`;
+    dot.className = 'ctrl-status-dot';
+    // 自動刷新相機
+    setTimeout(ctrlRefreshCamera, 800);
+  }).catch(err => {
+    dot.className = 'ctrl-status-dot error';
+    txt.textContent = `發送失敗！請檢查網路`;
+    console.error('Blynk both error:', err);
+  });
+}
+
+// ── 遠端控制相機函數 ──────────────────────────────────────────────────────────
+let ctrlCameraNodeId = '';
+
+function ctrlRefreshCamera() {
+  const nodeId = ctrlCameraNodeId || selectedNodeId || 'NODE_ISM_001';
+  if (!nodeId) return;
+  const img = document.getElementById('ctrl-camera-img');
+  const placeholder = document.getElementById('ctrl-cam-placeholder');
+  const ts = document.getElementById('ctrl-cam-ts');
+  const liveDot = document.getElementById('ctrl-cam-live-dot');
+
+  // 顯示圖片，隱藏 placeholder
+  img.style.display = 'block';
+  if (placeholder) placeholder.style.display = 'none';
+  liveDot.style.background = '#eab308'; // 黃色表示載入中
+
+  ts.textContent = '載入中...';
+  const node = nodes.find(n => n.node_id === nodeId);
+  const camUrl = node && node.camera_url ? node.camera_url : null;
+
+  if (camUrl) {
+    const directUrl = camUrl.includes('?') ? `${camUrl}&_t=${Date.now()}` : `${camUrl}?_t=${Date.now()}`;
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
+    };
+    img.src = directUrl;
+  } else {
+    img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
+  }
+
+  img.onload = () => {
+    ts.textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW')}`;
+    liveDot.style.background = '#22c55e'; // 綠色表示成功
+    liveDot.style.boxShadow = '0 0 5px rgba(34,197,94,.6)';
+  };
+}
+
+// ── 遠端控制節點選擇 ──────────────────────────────────────────────────────────
+function onCtrlNodeChange() {
+  const select = document.getElementById('ctrl-node-select');
+  const nodeId = select.value;
+  if (!nodeId) return;
+
+  const node = nodes.find(n => n.node_id === nodeId);
+  if (!node) return;
+
+  // 更新節點資訊
+  ctrlToken = node.blynk_token || '';
+  ctrlLastState = {};
+  ctrlCameraNodeId = nodeId;
+
+  document.getElementById('ctrl-node-name').textContent = node.name || nodeId;
+  document.getElementById('ctrl-node-token').textContent =
+    ctrlToken ? `Blynk Token: ...${ctrlToken.slice(-6)} | sgp1.blynk.cloud` : '未設定 Blynk Token（無法控制）';
+  document.getElementById('ctrl-cam-node-label').textContent = node.name || nodeId;
+
+  const dot = document.getElementById('ctrl-status-dot');
+  const txt = document.getElementById('ctrl-status-text');
+  if (ctrlToken) {
+    dot.className = 'ctrl-status-dot';
+    txt.textContent = `Ready — 節點: ${node.name}`;
+  } else {
+    dot.className = 'ctrl-status-dot error';
+    txt.textContent = `警告：節點 ${node.name} 未設定 Blynk Token`;
+  }
+
+  // 載入相機畫面
+  ctrlRefreshCamera();
+}
+
+// 從節點列表的「控制」按鈕進入時，同步更新下拉選單
+const _origOpenCtrlPanel = openCtrlPanel;
+function openCtrlPanel(nodeId, nodeName, token) {
+  _origOpenCtrlPanel(nodeId, nodeName, token);
+  ctrlCameraNodeId = nodeId;
+  // 同步下拉選單
+  const sel = document.getElementById('ctrl-node-select');
+  if (sel) sel.value = nodeId;
+  document.getElementById('ctrl-node-token').textContent =
+    token ? `Blynk Token: ...${token.slice(-6)} | sgp1.blynk.cloud` : '未設定 Blynk Token';
+  document.getElementById('ctrl-cam-node-label').textContent = nodeName;
+  // 載入相機畫面
+  ctrlRefreshCamera();
+}
+
+// 在 loadNodes 完成後，同步遠端控制的節點下拉選單
+function syncCtrlNodeSelect() {
+  const sel = document.getElementById('ctrl-node-select');
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">— 請選擇節點 —</option>';
+  nodes.forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n.node_id;
+    opt.textContent = `${n.name} (${n.node_id})`;
+    sel.appendChild(opt);
+  });
+  if (currentVal) sel.value = currentVal;
 }
 </script>
 </body>
