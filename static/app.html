@@ -26,7 +26,11 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 /* ── 主體佈局 ── */
 .main{display:flex;flex:1;overflow:hidden}
 /* ── 左側面板 ── */
-.sidebar{width:340px;min-width:300px;background:rgba(15,23,42,.98);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.sidebar{width:35vw;min-width:280px;max-width:70vw;background:rgba(15,23,42,.98);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative;flex-shrink:0}
+/* 拖拉分隔條 */
+.sidebar-resizer{width:5px;background:var(--border);cursor:col-resize;position:absolute;right:0;top:0;bottom:0;z-index:100;transition:background .15s}
+.sidebar-resizer:hover,.sidebar-resizer.dragging{background:var(--blue);box-shadow:0 0 8px rgba(59,130,246,.5)}
+.sidebar-resizer::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:3px;height:32px;border-radius:2px;background:rgba(255,255,255,.15)}
 .sidebar-tabs{display:flex;border-bottom:1px solid var(--border)}
 .tab-btn{flex:1;padding:12px 8px;background:transparent;border:none;color:#64748b;font-size:.78rem;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}
 .tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
@@ -72,10 +76,10 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .ctrl-axis-label span.axis-dot{display:inline-block;width:8px;height:8px;border-radius:50%}
 .ctrl-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ctrl-btn{
-  padding:14px 8px;
-  border-radius:10px;
+  padding:18px 10px;
+  border-radius:12px;
   border:none;
-  font-size:.88rem;
+  font-size:1rem;
   font-weight:800;
   color:#fff;
   cursor:pointer;
@@ -87,7 +91,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
   display:flex;
   flex-direction:column;
   align-items:center;
-  gap:4px;
+  gap:6px;
+  min-height:64px;
 }
 .ctrl-btn:active,.ctrl-btn.pressing{transform:scale(.94);opacity:.8;box-shadow:0 0 0 3px rgba(255,255,255,.2)}
 .ctrl-btn-y{background:linear-gradient(135deg,#166534,#15803d)}
@@ -96,7 +101,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 .ctrl-btn-x.pressing{background:linear-gradient(135deg,#3b82f6,#2563eb);box-shadow:0 0 12px rgba(59,130,246,.5)}
 .ctrl-btn-z{background:linear-gradient(135deg,#7c2d12,#c2410c)}
 .ctrl-btn-z.pressing{background:linear-gradient(135deg,#f97316,#ea580c);box-shadow:0 0 12px rgba(249,115,22,.5)}
-.ctrl-btn-icon{font-size:1.3rem;line-height:1}
+.ctrl-btn-icon{font-size:1.6rem;line-height:1}
 .ctrl-status-bar{background:#0f172a;border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:.72rem;color:#475569;margin-top:12px;font-family:monospace;min-height:32px;display:flex;align-items:center;gap:6px}
 .ctrl-status-dot{width:6px;height:6px;border-radius:50%;background:#475569;flex-shrink:0}
 .ctrl-status-dot.active{background:#22c55e;box-shadow:0 0 6px rgba(34,197,94,.6)}
@@ -287,7 +292,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 <div class="main">
 
   <!-- ── 左側面板 ── -->
-  <div class="sidebar">
+  <div class="sidebar" id="sidebar">
+    <!-- 拖拉分隔條 -->
+    <div class="sidebar-resizer" id="sidebar-resizer" title="拖拉調整寬度"></div>
     <div class="sidebar-tabs">
       <button class="tab-btn active" onclick="switchTab('nodes')">節點列表</button>
       <button class="tab-btn" onclick="switchTab('assess')">品質評估</button>
@@ -865,7 +872,81 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadNodes();
   setInterval(loadNodes, 15000);
   setInterval(refreshCamera, 5000);
+  initSidebarResizer();
 });
+
+// ── Sidebar 拖拉調整寬度 ──────────────────────────────────────────────────────────
+function initSidebarResizer() {
+  const sidebar = document.getElementById('sidebar');
+  const resizer = document.getElementById('sidebar-resizer');
+  if (!sidebar || !resizer) return;
+
+  // 從 localStorage 讀取上次儲存的寬度
+  const savedWidth = localStorage.getItem('sidebarWidth');
+  if (savedWidth) {
+    sidebar.style.width = savedWidth;
+  }
+
+  let isResizing = false;
+  let startX = 0;
+  let startWidth = 0;
+
+  resizer.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  // 觸控支援
+  resizer.addEventListener('touchstart', (e) => {
+    isResizing = true;
+    startX = e.touches[0].clientX;
+    startWidth = sidebar.getBoundingClientRect().width;
+    resizer.classList.add('dragging');
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    const dx = e.clientX - startX;
+    const newWidth = Math.min(Math.max(startWidth + dx, 280), window.innerWidth * 0.75);
+    sidebar.style.width = newWidth + 'px';
+  });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isResizing) return;
+    const dx = e.touches[0].clientX - startX;
+    const newWidth = Math.min(Math.max(startWidth + dx, 280), window.innerWidth * 0.75);
+    sidebar.style.width = newWidth + 'px';
+  }, { passive: false });
+
+  document.addEventListener('mouseup', () => {
+    if (!isResizing) return;
+    isResizing = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    // 儲存寬度到 localStorage
+    localStorage.setItem('sidebarWidth', sidebar.style.width);
+  });
+
+  document.addEventListener('touchend', () => {
+    if (!isResizing) return;
+    isResizing = false;
+    resizer.classList.remove('dragging');
+    localStorage.setItem('sidebarWidth', sidebar.style.width);
+  });
+
+  // 雙擊分隔條復原預設寬度
+  resizer.addEventListener('dblclick', () => {
+    sidebar.style.width = '35vw';
+    localStorage.setItem('sidebarWidth', '35vw');
+  });
+}
 
 // ── 地圖初始化 ────────────────────────────────────────────────────────────────
 function initMap() {
