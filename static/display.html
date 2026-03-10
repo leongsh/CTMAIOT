@@ -895,25 +895,31 @@ async function fetchAndUpdate() {
     if (hum   != null) pushMiniChart('chart-hum',   hum);
     if (light != null) pushMiniChart('chart-light',  light);
 
-    // AI 腐敗指數
+    // AI 腐敗指數（使用複合評分計算：100 - Q_combined）
     const ai = data.ai || {};
-    if (ai.available && ai.spoilage != null) {
-      const sp    = ai.spoilage;
-      const color = ai.color || '#22c55e';
+    const q_pre = data.quality;
+    if (q_pre) {
+      const qScore = q_pre.quality_score ?? q_pre.quality_combined ?? 0;
+      const sp = Math.max(0, Math.min(100, 100 - qScore));
+      // 顏色依腐敗程度
+      const color = sp < 15 ? '#22c55e' : sp < 30 ? '#eab308' : sp < 50 ? '#f97316' : '#ef4444';
+      const freshLabel = sp < 15 ? '非常新鮮' : sp < 30 ? '良好新鮮' : sp < 50 ? '輕微老化' : '嚴重老化';
       document.getElementById('ai-spoilage-val').textContent = sp.toFixed(1);
       document.getElementById('ai-spoilage-val').style.color = color;
-      document.getElementById('ai-label').textContent = ai.label || '';
+      document.getElementById('ai-label').textContent = freshLabel;
       document.getElementById('ai-label').style.color = color;
       document.getElementById('ai-label').style.background = color + '20';
       document.getElementById('ai-label').style.borderColor = color + '50';
       document.getElementById('ai-bar').style.width = sp.toFixed(1) + '%';
       document.getElementById('ai-bar').style.background = color;
+      // 時間戳（若有 AI 推理時間則顯示，否則顯示品質計算時間）
       const sourceMap = { 'manual':'手動評估', 'manual_predict':'手動完整推理', 'auto':'自動推理' };
-      const sourceLabel = sourceMap[ai.source] || '自動推理';
+      const sourceLabel = ai.source ? (sourceMap[ai.source] || '自動推理') : '複合評分';
       const sourceColor = (ai.source === 'manual' || ai.source === 'manual_predict') ? '#a78bfa' : '#38bdf8';
+      const ts = (ai.inferred_at || q_pre.calculated_at || '').slice(11, 19);
       document.getElementById('ai-infer-ts').innerHTML =
         '<span style="color:' + sourceColor + ';font-size:0.65rem;margin-right:5px">[' + sourceLabel + ']</span>' +
-        '最後更新：' + (ai.inferred_at || '').slice(11, 19);
+        (ts ? '最後更新：' + ts : '');
     } else {
       document.getElementById('ai-infer-ts').textContent =
         ai.available === false ? '等待 AI 推理（每 10 秒自動執行）' : '等待感測器數據…';
@@ -947,10 +953,10 @@ async function fetchAndUpdate() {
       document.getElementById('waste-sub').textContent =
         wasteRate < 20 ? '廢棄風險低' : wasteRate < 50 ? '廢棄風險中等' : '廢棄風險高';
 
-      // 價格
+      // 價格（前端重新計算，避免快取舊值）
       const basePrice  = q.base_price  ?? node.base_price ?? 100;
-      const finalPrice = q.final_price ?? basePrice;
       const discPct    = q.discount_pct ?? 0;
+      const finalPrice = basePrice * (1 - discPct / 100);
 
       // 原價
       document.getElementById('price-base').textContent = `$${basePrice.toFixed(2)} /kg`;

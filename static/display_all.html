@@ -576,7 +576,7 @@ function renderStats(nodes) {
   document.getElementById('stat-total').textContent = nodes.length;
   document.getElementById('stat-avg-quality').textContent = avgQ != null ? avgQ.toFixed(1) : '--';
   document.getElementById('stat-discount-count').textContent = discCount;
-  document.getElementById('stat-avg-price').textContent = avgP != null ? avgP.toFixed(0) : '--';
+  document.getElementById('stat-avg-price').textContent = avgP != null ? avgP.toFixed(1) : '--';
 }
 
 // ── 渲染節點卡片 ──────────────────────────────────────────────────────────────
@@ -636,9 +636,9 @@ function renderNodeCard(node) {
   const qualityScore = q ? (q.quality_score || q.quality_combined || 0) : null;
   const qualityAI    = q ? (q.quality_ai || null) : null;
   const qualityFormula = q ? (q.quality_formula || null) : null;
-  const dslDays      = q ? (q.dsl_days || q.dsl_combined || null) : null;
-  const finalPrice   = q ? (q.final_price || node.base_price) : node.base_price;
-  const discountPct  = q ? (q.discount_pct || 0) : 0;
+  const dslDays      = q ? (q.dsl_days ?? q.dsl_combined ?? null) : null;
+  const discountPct  = q ? (q.discount_pct ?? 0) : 0;
+  const finalPrice   = (node.base_price ?? 0) * (1 - discountPct / 100);
   const freshnessLabel = q ? (q.freshness_label || '') : '';
   const freshnessColor = q ? (q.freshness_color || '#64748b') : '#64748b';
   const qColor = qualityColor(qualityScore);
@@ -676,7 +676,7 @@ function renderNodeCard(node) {
       <div class="price-label">動態售價</div>
       <div class="price-main">
         <span class="price-currency">$</span>
-        <span class="price-val">${finalPrice != null ? finalPrice.toFixed(0) : '--'}</span>
+        <span class="price-val">${finalPrice != null ? finalPrice.toFixed(1) : '--'}</span>
         <span class="price-unit">/kg</span>
       </div>
     </div>
