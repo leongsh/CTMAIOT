@@ -167,7 +167,7 @@ def init_db():
         cur.execute("CREATE INDEX IF NOT EXISTS idx_readings_node ON readings(node_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_readings_time ON readings(recorded_at)")
 
-        # ── predictions 表（AI 品質評估記錄）─────────────────────────────────────
+        # ── predictions 表（AI 品質評估記錄）─────────────────────────────────────────────────
         cur.execute("""
             CREATE TABLE IF NOT EXISTS predictions (
                 id              SERIAL PRIMARY KEY,
@@ -185,11 +185,20 @@ def init_db():
                 final_price     REAL,
                 freshness_label TEXT,
                 product         TEXT,
+                camera_snapshot_url TEXT DEFAULT NULL,
                 recorded_at     TIMESTAMP DEFAULT NOW()
             )
         """)
         cur.execute("CREATE INDEX IF NOT EXISTS idx_pred_node ON predictions(node_id)")
         cur.execute("CREATE INDEX IF NOT EXISTS idx_pred_time ON predictions(recorded_at)")
+        # 對既有資料庫新增欄位（若已存在則忽略）
+        try:
+            cur.execute("""
+                ALTER TABLE predictions
+                ADD COLUMN IF NOT EXISTS camera_snapshot_url TEXT DEFAULT NULL
+            """)
+        except Exception:
+            pass
 
         # ── 預設帳號 ───────────────────────────────────────────────────────────────
         admin_pw = _hash_password("admin123")
@@ -374,13 +383,13 @@ def insert_prediction(node_id: str, data: dict):
             INSERT INTO predictions
                 (node_id, storage_days, temperature, humidity, ai_spoilage, quality_ai,
                  quality_formula, quality_combined, dsl_combined, discount_pct,
-                 base_price, final_price, freshness_label, product)
+                 base_price, final_price, freshness_label, product, camera_snapshot_url)
             VALUES
                 (%(node_id)s, %(storage_days)s, %(temperature)s, %(humidity)s,
                  %(ai_spoilage)s, %(quality_ai)s, %(quality_formula)s, %(quality_combined)s,
                  %(dsl_combined)s, %(discount_pct)s, %(base_price)s, %(final_price)s,
-                 %(freshness_label)s, %(product)s)
-        """, {"node_id": node_id, **data})
+                 %(freshness_label)s, %(product)s, %(camera_snapshot_url)s)
+        """, {"node_id": node_id, "camera_snapshot_url": None, **data})
 
 
 def get_node_readings(node_id: str, limit: int = 100):

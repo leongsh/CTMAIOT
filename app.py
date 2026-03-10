@@ -257,7 +257,7 @@ def start_mqtt():
 
 
 # ─── AI 自動推理背景任務 ─────────────────────────────────────────────────────
-AI_INFER_INTERVAL = 10  # 秒
+AI_INFER_INTERVAL = 1800  # 秒（30 分鐘）
 
 
 def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
@@ -288,15 +288,20 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
 
     # 取得相機 URL
     cam_url = node.get("camera_url") or CAMERA_URL
+    camera_snapshot_url = cam_url  # 記錄快照 URL（帶時間戳）
 
     try:
         resp = requests.get(cam_url, timeout=8)
         resp.raise_for_status()
         image = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        # 快照 URL 加入時間戳以區分不同時間的快照
+        ts_param = int(time.time())
+        camera_snapshot_url = f"{cam_url}?_snap={ts_param}" if cam_url else None
     except Exception as e:
         logger.warning("AI inference [%s] camera fetch failed: %s — using blank image fallback", node_id, e)
         # 相機失敗時使用空白圖片繼續推理（不中斷評估）
         image = Image.new("RGB", (224, 224), color=(128, 128, 128))
+        camera_snapshot_url = None
 
     try:
         img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
@@ -364,23 +369,24 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
     # 持久化到 DB
     save_ai_cache_to_db(node_id, result)
 
-    # 自動記錄到資料庫（每次推理都記錄）
+    # 自動記錄到資料庫（每 30 分鐘推理時記錄，包含相機快照 URL）
     if quality_data:
         try:
             insert_prediction(node_id, {
-                "storage_days":     storage_days,
-                "temperature":      temp,
-                "humidity":         hum,
-                "ai_spoilage":      spoilage,
-                "quality_ai":       quality_data.get("quality_ai"),
-                "quality_formula":  quality_data["quality_formula"],
-                "quality_combined": quality_data["quality_score"],
-                "dsl_combined":     quality_data["dsl_days"],
-                "discount_pct":     quality_data["discount_pct"],
-                "base_price":       base_price,
-                "final_price":      quality_data["final_price"],
-                "freshness_label":  quality_data["freshness_label"],
-                "product":          product,
+                "storage_days":          storage_days,
+                "temperature":           temp,
+                "humidity":              hum,
+                "ai_spoilage":           spoilage,
+                "quality_ai":            quality_data.get("quality_ai"),
+                "quality_formula":       quality_data["quality_formula"],
+                "quality_combined":      quality_data["quality_score"],
+                "dsl_combined":          quality_data["dsl_days"],
+                "discount_pct":          quality_data["discount_pct"],
+                "base_price":            base_price,
+                "final_price":           quality_data["final_price"],
+                "freshness_label":       quality_data["freshness_label"],
+                "product":               product,
+                "camera_snapshot_url":   camera_snapshot_url,
             })
         except Exception as e:
             logger.debug("Auto-save prediction error: %s", e)
@@ -389,7 +395,7 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
 
 
 def auto_ai_inference_loop():
-    """背景執行緒：每 10 秒對所有節點執行 AI 推理"""
+    """背景執行緒：每 30 分鐘對所有節點執行 AI 推理並記錄相機快照"""
     # 等待系統完全啟動（模型載入、DB 初始化）
     time.sleep(15)
     logger.info("Auto AI inference loop started")
@@ -500,10 +506,10 @@ async def startup():
     t.start()
     logger.info("MQTT thread started")
 
-    # 啟動 AI 自動推理背景執行緒（每 10 秒）
+    # 啟動 AI 自動推理背景執行緒（每 30 分鐘）
     ai_thread = threading.Thread(target=auto_ai_inference_loop, daemon=True)
     ai_thread.start()
-    logger.info("Auto AI inference thread started (interval=10s)")
+    logger.info("Auto AI inference thread started (interval=1800s / 30min)")
 
     # 啟動 Keep-Alive 執行緒（每 14 分鐘 ping 自己，防止 Render 免費方案冷啟動）
     ka_thread = threading.Thread(target=_keep_alive_loop, daemon=True)
@@ -1480,7 +1486,189 @@ async def display_sensor_only(node_id: str):
     }
 
 
-# ─── 靜態網頁 ─────────────────────────────────────────────────────────────────
+# ─── 數據匯出 API ─────────────────────────────────────────────────────────────────
+
+@app.get("/api/export/predictions")
+async def export_predictions(
+    format: str = "csv",
+    node_id: Optional[str] = None,
+    limit: int = 1000,
+    admin: dict = Depends(require_admin),
+):
+    """
+    匯出歷史評估記錄（用於模型重訓練）
+    - format: csv 或 json
+    - node_id: 指定節點（空白則匯出所有節點）
+    - limit: 最多筆數（預設 1000）
+    """
+    import csv
+    import json as _json
+    from io import StringIO
+
+    try:
+        with get_db() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            if node_id:
+                cur.execute("""
+                    SELECT p.*, n.name as node_name
+                    FROM predictions p
+                    LEFT JOIN nodes n ON p.node_id = n.node_id
+                    WHERE p.node_id = %s
+                    ORDER BY p.recorded_at DESC
+                    LIMIT %s
+                """, (node_id, limit))
+            else:
+                cur.execute("""
+                    SELECT p.*, n.name as node_name
+                    FROM predictions p
+                    LEFT JOIN nodes n ON p.node_id = n.node_id
+                    ORDER BY p.recorded_at DESC
+                    LIMIT %s
+                """, (limit,))
+            rows = cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"資料庫查詢失敗: {e}")
+
+    # 轉換時間格式
+    records = []
+    for r in rows:
+        d = dict(r)
+        if d.get('recorded_at'):
+            try:
+                from datetime import timezone, timedelta
+                _HKT = timezone(timedelta(hours=8))
+                dt = d['recorded_at']
+                if hasattr(dt, 'astimezone'):
+                    d['recorded_at'] = dt.astimezone(_HKT).strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    d['recorded_at'] = str(dt)
+            except Exception:
+                d['recorded_at'] = str(d['recorded_at'])
+        records.append(d)
+
+    if format.lower() == "json":
+        content = _json.dumps({
+            "exported_at": now_hkt(),
+            "total": len(records),
+            "node_id": node_id or "all",
+            "data": records
+        }, ensure_ascii=False, indent=2)
+        filename = f"predictions_{node_id or 'all'}_{datetime.now(_HKT).strftime('%Y%m%d_%H%M%S')}.json"
+        return StreamingResponse(
+            iter([content]),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    else:
+        # CSV 格式
+        output = StringIO()
+        if records:
+            fieldnames = list(records[0].keys())
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(records)
+        csv_content = output.getvalue()
+        filename = f"predictions_{node_id or 'all'}_{datetime.now(_HKT).strftime('%Y%m%d_%H%M%S')}.csv"
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "text/csv; charset=utf-8",
+            }
+        )
+
+
+@app.get("/api/export/readings")
+async def export_readings(
+    format: str = "csv",
+    node_id: Optional[str] = None,
+    limit: int = 1000,
+    admin: dict = Depends(require_admin),
+):
+    """
+    匯出感測器讀數記錄
+    - format: csv 或 json
+    - node_id: 指定節點（空白則匯出所有節點）
+    - limit: 最多筆數（預設 1000）
+    """
+    import csv
+    import json as _json
+    from io import StringIO
+
+    try:
+        with get_db() as conn:
+            cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            if node_id:
+                cur.execute("""
+                    SELECT r.*, n.name as node_name
+                    FROM readings r
+                    LEFT JOIN nodes n ON r.node_id = n.node_id
+                    WHERE r.node_id = %s
+                    ORDER BY r.recorded_at DESC
+                    LIMIT %s
+                """, (node_id, limit))
+            else:
+                cur.execute("""
+                    SELECT r.*, n.name as node_name
+                    FROM readings r
+                    LEFT JOIN nodes n ON r.node_id = n.node_id
+                    ORDER BY r.recorded_at DESC
+                    LIMIT %s
+                """, (limit,))
+            rows = cur.fetchall()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"資料庫查詢失敗: {e}")
+
+    records = []
+    for r in rows:
+        d = dict(r)
+        if d.get('recorded_at'):
+            try:
+                from datetime import timezone, timedelta
+                _HKT = timezone(timedelta(hours=8))
+                dt = d['recorded_at']
+                if hasattr(dt, 'astimezone'):
+                    d['recorded_at'] = dt.astimezone(_HKT).strftime("%Y-%m-%d %H:%M:%S")
+                else:
+                    d['recorded_at'] = str(dt)
+            except Exception:
+                d['recorded_at'] = str(d['recorded_at'])
+        records.append(d)
+
+    if format.lower() == "json":
+        content = _json.dumps({
+            "exported_at": now_hkt(),
+            "total": len(records),
+            "node_id": node_id or "all",
+            "data": records
+        }, ensure_ascii=False, indent=2)
+        filename = f"readings_{node_id or 'all'}_{datetime.now(_HKT).strftime('%Y%m%d_%H%M%S')}.json"
+        return StreamingResponse(
+            iter([content]),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+    else:
+        output = StringIO()
+        if records:
+            fieldnames = list(records[0].keys())
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(records)
+        csv_content = output.getvalue()
+        filename = f"readings_{node_id or 'all'}_{datetime.now(_HKT).strftime('%Y%m%d_%H%M%S')}.csv"
+        return StreamingResponse(
+            iter([csv_content]),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Type": "text/csv; charset=utf-8",
+            }
+        )
+
+
+# ─── 靜態網頁 ─────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 

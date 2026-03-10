@@ -269,6 +269,9 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
 @keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(20px)}}
 /* ── 載入中覆蓋層 ── */
 .btn-modal-save.loading{opacity:.6;cursor:not-allowed;pointer-events:none}
+/* ── 數據匯出按鈕 ── */
+.btn-export{background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.35);color:var(--blue);padding:6px 12px;border-radius:7px;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-export:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
 </style>
 </head>
 <body>
@@ -453,12 +456,32 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
           </select>
         </div>
 
+        <!-- 數據匯出區塊 -->
+        <div style="background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.2);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+          <div style="font-size:.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">📥 數據匯出（模型重訓練）</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn-export" onclick="exportData('predictions','csv')" title="匯出所有節點的 AI 評估記錄（CSV）">
+              📄 評估記錄 CSV
+            </button>
+            <button class="btn-export" onclick="exportData('predictions','json')" title="匯出所有節點的 AI 評估記錄（JSON）">
+              {} 評估記錄 JSON
+            </button>
+            <button class="btn-export" onclick="exportData('readings','csv')" title="匯出感測器讀數記錄（CSV）">
+              🌡️ 感測器讀數 CSV
+            </button>
+            <button class="btn-export" onclick="exportDataByNode('predictions','csv')" title="匯出當前選擇節點的評估記錄">
+              📌 當前節點匯出
+            </button>
+          </div>
+          <div style="font-size:.68rem;color:#64748b;margin-top:8px">ℹ️ 匯出最近 1000 筆記錄，包含温濕度、品質評分、定價、相機快照 URL 等資料</div>
+        </div>
+
         <div class="chart-wrap" id="chart-wrap" style="display:none">
           <div class="chart-title">品質評分趨勢（最近 50 筆）</div>
           <canvas id="quality-chart" height="180"></canvas>
         </div>
         <div class="chart-wrap" id="chart-wrap2" style="display:none">
-          <div class="chart-title">溫溼度趨勢（最近 50 筆）</div>
+          <div class="chart-title">溫濕度趨勢（最近 50 筆）</div>
           <canvas id="sensor-chart" height="180"></canvas>
         </div>
         <div id="history-list" style="margin-top:10px"></div>
@@ -1798,7 +1821,78 @@ async function loadHistory() {
   }
 }
 
-// ── Tab 切換 ────────────────────────────────────────────────────────────────────
+// ── 數據匯出功能 ──────────────────────────────────────────────────────────────────────────────────
+// 匯出所有節點的數據
+function exportData(type, format) {
+  const token = localStorage.getItem('ctma_token');
+  if (!token) {
+    showToast('請先登入才能匯出數據', 'error');
+    return;
+  }
+  const url = `/api/export/${type}?format=${format}&limit=1000`;
+  showToast(`正在準備匯出 ${type} (${format.toUpperCase()})…`, 'info');
+  // 使用隱藏的 <a> 元素觸發下載
+  fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }).then(resp => {
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const fnMatch = cd.match(/filename="([^"]+)"/);
+    const filename = fnMatch ? fnMatch[1] : `${type}_export.${format}`;
+    return resp.blob().then(blob => ({ blob, filename }));
+  }).then(({ blob, filename }) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    showToast(`已下載: ${filename}`, 'success');
+  }).catch(err => {
+    console.error('Export error:', err);
+    showToast(`匯出失敗: ${err.message}`, 'error');
+  });
+}
+
+// 匯出當前選擇節點的數據
+function exportDataByNode(type, format) {
+  const nodeId = document.getElementById('history-node-select')?.value;
+  if (!nodeId) {
+    showToast('請先選擇節點', 'error');
+    return;
+  }
+  const token = localStorage.getItem('ctma_token');
+  if (!token) {
+    showToast('請先登入才能匯出數據', 'error');
+    return;
+  }
+  const url = `/api/export/${type}?format=${format}&node_id=${encodeURIComponent(nodeId)}&limit=1000`;
+  showToast(`正在準備匯出節點 ${nodeId} 的 ${type} (${format.toUpperCase()})…`, 'info');
+  fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  }).then(resp => {
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const cd = resp.headers.get('Content-Disposition') || '';
+    const fnMatch = cd.match(/filename="([^"]+)"/);
+    const filename = fnMatch ? fnMatch[1] : `${type}_${nodeId}.${format}`;
+    return resp.blob().then(blob => ({ blob, filename }));
+  }).then(({ blob, filename }) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    showToast(`已下載: ${filename}`, 'success');
+  }).catch(err => {
+    console.error('Export error:', err);
+    showToast(`匯出失敗: ${err.message}`, 'error');
+  });
+}
+
+// ── Tab 切換 ──────────────────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach((b,i) => {
     const tabs = ['nodes','assess','history','ctrl'];
@@ -1855,7 +1949,7 @@ function ctrlPress(pin, value, btnId) {
     });
 }
 
-// 放開按鈕：發送 0
+// 放開按鈕：發送 0，並在 800ms 後刷新相機
 function ctrlRelease(pin, btnId) {
   if (!ctrlToken) return;
   if (ctrlLastState[pin] === 0) return;
@@ -1873,6 +1967,8 @@ function ctrlRelease(pin, btnId) {
   fetch(url, { mode: 'no-cors' })
     .then(() => {
       console.log(`Blynk CMD: ${pin}=0`);
+      // 馬達停止後自動刷新相機畫面（延遲 800ms 讓機械移動完成）
+      setTimeout(ctrlRefreshCamera, 800);
     })
     .catch(err => {
       console.error('Blynk release error:', err);
@@ -1901,6 +1997,8 @@ function ctrlServoSend(pin, value) {
       txt.textContent = `伺服器已設定: ${pin} = ${value}° ✓`;
       dot.className = 'ctrl-status-dot';
       console.log(`Blynk Servo: ${pin}=${value}`);
+      // 伺服器移動後自動刷新相機畫面（延遲 1000ms 讓機械移動完成）
+      setTimeout(ctrlRefreshCamera, 1000);
     })
     .catch(err => {
       dot.className = 'ctrl-status-dot error';
