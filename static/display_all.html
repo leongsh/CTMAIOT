@@ -163,8 +163,63 @@ body{
 .node-card.has-discount{
   border-color:rgba(239,68,68,.3);
 }
+/* 線上且有折扣時：紅色邊框發光 */
+.node-card.has-discount.is-online{
+  border-color:rgba(239,68,68,.55);
+  box-shadow:0 0 0 1px rgba(239,68,68,.25), 0 0 20px rgba(239,68,68,.12);
+}
+.node-card.has-discount.is-online::before{
+  background:linear-gradient(90deg,#ef4444,#f97316,#ef4444);
+}
 .node-card.offline{
-  opacity:.6;
+  opacity:.55;
+  filter:grayscale(.3);
+}
+
+/* 線上節點：綠色發光邊框 */
+.node-card.is-online{
+  border-color:rgba(34,197,94,.55);
+  box-shadow:0 0 0 1px rgba(34,197,94,.25), 0 0 20px rgba(34,197,94,.12);
+}
+.node-card.is-online:hover{
+  box-shadow:0 0 0 1px rgba(34,197,94,.5), 0 0 32px rgba(34,197,94,.22), 0 8px 30px rgba(0,0,0,.4);
+}
+/* 綠色頂部光條 */
+.node-card.is-online::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:3px;
+  background:linear-gradient(90deg,#22c55e,#4ade80,#22c55e);
+  background-size:200% 100%;
+  animation:shimmer 2.5s linear infinite;
+  border-radius:14px 14px 0 0;
+}
+@keyframes shimmer{
+  0%{background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+/* 線上即時感測標籤 */
+.online-live-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  font-size:.6rem;
+  font-weight:700;
+  color:#22c55e;
+  background:rgba(34,197,94,.12);
+  border:1px solid rgba(34,197,94,.3);
+  border-radius:999px;
+  padding:2px 8px;
+  margin-top:4px;
+  letter-spacing:.3px;
+}
+.online-live-badge .live-dot{
+  width:6px;height:6px;
+  border-radius:50%;
+  background:#22c55e;
+  box-shadow:0 0 5px #22c55e;
+  animation:pulse 1.5s infinite;
 }
 
 /* 折扣角標 */
@@ -629,6 +684,7 @@ function renderNodeCard(node) {
   const statusText  = node.status === 'active' ? '線上' : node.status === 'maintenance' ? '維護中' : '離線';
   const productName = PRODUCT_NAMES[node.product] || node.product;
   const isOffline = !sensor.online;
+  const isOnline = !!sensor.online;  // IoT 設備有即時數據
   const hasDiscount = q && (q.discount_pct || 0) > 0;
   const source = ai.source || 'auto';
 
@@ -652,7 +708,7 @@ function renderNodeCard(node) {
   const hum  = sensor.humidity    != null ? sensor.humidity.toFixed(1) + '%' : '--';
 
   return `
-<div class="node-card${hasDiscount?' has-discount':''}${isOffline?' offline':''}">
+<div class="node-card${hasDiscount?' has-discount':''}${isOffline?' offline':''}${isOnline?' is-online':''}">
   ${hasDiscount ? `<div class="discount-corner">-${discountPct}% OFF</div>` : ''}
   
   <!-- 卡片頭部 -->
@@ -660,6 +716,7 @@ function renderNodeCard(node) {
     <div class="card-head-left">
       <div class="node-name">${node.name}</div>
       <div class="node-location">${node.location_name || '未設定位置'}</div>
+      ${isOnline ? `<div class="online-live-badge"><span class="live-dot"></span>📡 IoT 即時感測中</div>` : ''}
     </div>
     <span class="node-status-badge ${statusClass}">${statusText}</span>
   </div>
