@@ -1600,21 +1600,23 @@ async def export_predictions(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     else:
-        # CSV 格式
+        # CSV 格式（加入 UTF-8 BOM，讓 Excel 正確識別中文編碼）
+        from io import BytesIO
         output = StringIO()
         if records:
             fieldnames = list(records[0].keys())
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(records)
-        csv_content = output.getvalue()
+        # 加 UTF-8 BOM (\xef\xbb\xbf) 解決 Excel 開啟中文亂碼
+        csv_bytes = b"\xef\xbb\xbf" + output.getvalue().encode("utf-8")
         filename = f"predictions_{node_id or 'all'}_{datetime.now(_HKT).strftime('%Y%m%d_%H%M%S')}.csv"
         return StreamingResponse(
-            iter([csv_content]),
-            media_type="text/csv; charset=utf-8",
+            iter([csv_bytes]),
+            media_type="text/csv; charset=utf-8-sig",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Type": "text/csv; charset=utf-8",
+                "Content-Type": "text/csv; charset=utf-8-sig",
             }
         )
 
@@ -1690,20 +1692,22 @@ async def export_readings(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     else:
+        # CSV 格式（加入 UTF-8 BOM，讓 Excel 正確識別中文編碼）
         output = StringIO()
         if records:
             fieldnames = list(records[0].keys())
             writer = csv.DictWriter(output, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(records)
-        csv_content = output.getvalue()
+        # 加 UTF-8 BOM (小\xef\xbb\xbf) 解決 Excel 開啟中文亂碼
+        csv_bytes = b"\xef\xbb\xbf" + output.getvalue().encode("utf-8")
         filename = f"readings_{node_id or 'all'}_{datetime.now(_HKT).strftime('%Y%m%d_%H%M%S')}.csv"
         return StreamingResponse(
-            iter([csv_content]),
-            media_type="text/csv; charset=utf-8",
+            iter([csv_bytes]),
+            media_type="text/csv; charset=utf-8-sig",
             headers={
                 "Content-Disposition": f'attachment; filename="{filename}"',
-                "Content-Type": "text/csv; charset=utf-8",
+                "Content-Type": "text/csv; charset=utf-8-sig",
             }
         )
 
