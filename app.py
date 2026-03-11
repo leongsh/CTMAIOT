@@ -331,7 +331,11 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
 
         with torch.no_grad():
             prediction = model_ai(img_tensor, sensor_tensor).item()
-        spoilage = float(np.clip(prediction, 0, 100))
+        # 訓練標籤範圍是 1–20，縮放到 0–100
+        # 公式：spoilage = (raw_output - 1) / (20 - 1) * 100
+        raw_clipped = float(np.clip(prediction, 1.0, 20.0))
+        spoilage = (raw_clipped - 1.0) / 19.0 * 100.0
+        logger.info("AI inference [%s] raw_output=%.4f -> spoilage=%.2f%%", node_id, prediction, spoilage)
     except Exception as e:
         logger.warning("AI inference [%s] model error: %s", node_id, e)
         return None
@@ -1255,7 +1259,11 @@ async def predict(req: PredictRequest):
 
     with torch.no_grad():
         prediction = model_ai(img_tensor, sensor_tensor).item()
-    spoilage = float(np.clip(prediction, 0, 100))
+    # 訓練標籤範圍是 1–20，縮放到 0–100
+    # 公式：spoilage = (raw_output - 1) / (20 - 1) * 100
+    raw_clipped = float(np.clip(prediction, 1.0, 20.0))
+    spoilage = (raw_clipped - 1.0) / 19.0 * 100.0
+    logger.info("/api/predict raw_output=%.4f -> spoilage=%.2f%%", prediction, spoilage)
 
     initial_dsl = req.initial_dsl
     if initial_dsl is None:
