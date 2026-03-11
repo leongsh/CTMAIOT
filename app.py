@@ -1137,8 +1137,28 @@ async def calc_quality(req: QualityRequest):
     )
     data = quality_result_to_dict(result, base_price=req.base_price)
 
-    # 記錄到資料庫
+    # 記錄到資料庫（含相機圖片 Base64）
     if req.save_record:
+        # 嘗試抓取相機圖片
+        _cam_snapshot_url = None
+        _cam_image_base64 = None
+        try:
+            _node = get_node(req.node_id)
+            _cam_url = (_node.get("camera_url") or CAMERA_URL) if _node else CAMERA_URL
+            import httpx as _httpx
+            async with _httpx.AsyncClient(timeout=8.0) as _client:
+                _resp = await _client.get(_cam_url)
+                _resp.raise_for_status()
+            _img = Image.open(io.BytesIO(_resp.content)).convert("RGB")
+            _ts = int(time.time())
+            _cam_snapshot_url = f"{_cam_url}?_snap={_ts}"
+            _buf = io.BytesIO()
+            _img_save = _img.copy()
+            _img_save.thumbnail((640, 480), Image.LANCZOS)
+            _img_save.save(_buf, format="JPEG", quality=70, optimize=True)
+            _cam_image_base64 = base64.b64encode(_buf.getvalue()).decode("utf-8")
+        except Exception as _cam_err:
+            logger.warning("/api/quality [%s] camera fetch failed: %s", req.node_id, _cam_err)
         try:
             insert_prediction(req.node_id, {
                 "storage_days": req.storage_days, "temperature": temp, "humidity": hum,
@@ -1149,11 +1169,14 @@ async def calc_quality(req: QualityRequest):
                 "discount_pct": data["discount_pct"],
                 "base_price": req.base_price, "final_price": data["final_price"],
                 "freshness_label": data["freshness_label"], "product": req.product,
+                "camera_snapshot_url": _cam_snapshot_url,
+                "camera_image_base64": _cam_image_base64,
             })
+            logger.info("/api/quality [%s] saved with image=%s", req.node_id, "yes" if _cam_image_base64 else "no")
         except Exception as e:
             logger.warning("Save prediction failed: %s", e)
 
-    # ── 同步更新 ai_cache，讓電子報價牌即時反映最新評估結果 ──────────────────
+    # ── 同步更新 ai_cache，讓電子報價牌即時反映最新評估結果 ──────────────
     # 手動評估的優先級高於自動推理（因為包含更完整的參數設定）
     ai_spoilage_sync = req.ai_spoilage if req.ai_spoilage is not None else (
         ai_cache.get(req.node_id, {}).get("spoilage")
@@ -1239,11 +1262,26 @@ async def predict(req: PredictRequest):
     node = get_node(req.node_id)
     cam_url = (node.get("camera_url") or CAMERA_URL) if node else CAMERA_URL
 
+    camera_snapshot_url = None
+    camera_image_base64 = None
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             resp = await client.get(cam_url)
             resp.raise_for_status()
         image = Image.open(io.BytesIO(resp.content)).convert("RGB")
+        # 記錄快照 URL（帶時間戳）
+        ts_param = int(time.time())
+        camera_snapshot_url = f"{cam_url}?_snap={ts_param}" if cam_url else None
+        # 將圖片壓縮後轉為 Base64 字串儲存
+        try:
+            buf = io.BytesIO()
+            img_save = image.copy()
+            img_save.thumbnail((640, 480), Image.LANCZOS)
+            img_save.save(buf, format="JPEG", quality=70, optimize=True)
+            camera_image_base64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+        except Exception as b64_err:
+            logger.warning("/api/predict [%s] base64 encode error: %s", req.node_id, b64_err)
+            camera_image_base64 = None
     except Exception as e:
         logger.warning("/api/predict [%s] camera fetch failed: %s — using blank image fallback", req.node_id, e)
         # 相機失敗時使用空白圖片繼續推理（不中斷評估）
@@ -1283,7 +1321,7 @@ async def predict(req: PredictRequest):
     elif spoilage < 80: ai_label, ai_color = "中度腐敗 🔴", "#ef4444"
     else:               ai_label, ai_color = "嚴重腐敗 ⚫", "#7f1d1d"
 
-    # 記錄到資料庫
+    # 記錄到資料庫（含相機圖片 Base64）
     if req.save_record:
         try:
             insert_prediction(req.node_id, {
@@ -1295,7 +1333,10 @@ async def predict(req: PredictRequest):
                 "discount_pct": quality_data["discount_pct"],
                 "base_price": req.base_price, "final_price": quality_data["final_price"],
                 "freshness_label": quality_data["freshness_label"], "product": req.product,
+                "camera_snapshot_url": camera_snapshot_url,
+                "camera_image_base64": camera_image_base64,
             })
+            logger.info("/api/predict [%s] saved with image=%s", req.node_id, "yes" if camera_image_base64 else "no")
         except Exception as e:
             logger.warning("Save prediction failed: %s", e)
     # ── 同步更新 ai_cache，讓電子報價牌即時反映最新完整推理結果 ─────────────────
