@@ -1097,8 +1097,18 @@ class QualityRequest(BaseModel):
 @app.post("/api/quality")
 async def calc_quality(req: QualityRequest):
     node_sensor = sensor_cache.get(req.node_id, {})
-    temp = req.temperature if req.temperature is not None else node_sensor.get("temperature")
-    hum  = req.humidity    if req.humidity    is not None else node_sensor.get("humidity")
+    # 檢查 MQTT 數據是否真實有效（必須有 timestamp，且在 10 分鐘內）
+    _mqtt_ts = node_sensor.get("timestamp")
+    _mqtt_fresh = False
+    if _mqtt_ts:
+        try:
+            _age = (datetime.now(_HKT) - datetime.strptime(_mqtt_ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_HKT)).total_seconds()
+            _mqtt_fresh = _age < 600  # 10 分鐘內視為有效
+        except Exception:
+            _mqtt_fresh = False
+
+    temp = req.temperature if req.temperature is not None else (node_sensor.get("temperature") if _mqtt_fresh else None)
+    hum  = req.humidity    if req.humidity    is not None else (node_sensor.get("humidity")    if _mqtt_fresh else None)
 
     # 無 MQTT 數據時使用預設環境值（室溫 25°C、濕度 65%），不中斷評估
     using_default_sensor = False
@@ -1107,6 +1117,9 @@ async def calc_quality(req: QualityRequest):
         hum  = 65.0
         using_default_sensor = True
         logger.info("/api/quality [%s]: no MQTT data, using default sensor (25°C, 65%%)", req.node_id)
+    elif req.temperature is None and req.humidity is None and _mqtt_fresh:
+        # 明確標記使用的是 MQTT 即時數據（非手動輸入）
+        using_default_sensor = False
 
     initial_dsl = req.initial_dsl
     if initial_dsl is None:
@@ -1174,7 +1187,8 @@ async def calc_quality(req: QualityRequest):
                 req.node_id, data.get("quality_score", 0), data.get("discount_pct", 0))
 
     data["using_default_sensor"] = using_default_sensor
-    data["sensor_source"] = "default (25°C/65%)" if using_default_sensor else "mqtt"
+    data["sensor_source"] = ("default (25°C/65%)" if using_default_sensor
+                             else ("manual" if req.temperature is not None or req.humidity is not None else "mqtt"))
     return data
 
 
@@ -1197,9 +1211,18 @@ async def predict(req: PredictRequest):
         raise HTTPException(status_code=503, detail="Model not ready")
 
     node_sensor = sensor_cache.get(req.node_id, {})
-    temp = req.temperature if req.temperature is not None else node_sensor.get("temperature")
-    hum  = req.humidity    if req.humidity    is not None else node_sensor.get("humidity")
+    # 檢查 MQTT 數據是否真實有效（必須有 timestamp，且在 10 分鐘內）
+    _mqtt_ts2 = node_sensor.get("timestamp")
+    _mqtt_fresh2 = False
+    if _mqtt_ts2:
+        try:
+            _age2 = (datetime.now(_HKT) - datetime.strptime(_mqtt_ts2, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_HKT)).total_seconds()
+            _mqtt_fresh2 = _age2 < 600  # 10 分鐘內視為有效
+        except Exception:
+            _mqtt_fresh2 = False
 
+    temp = req.temperature if req.temperature is not None else (node_sensor.get("temperature") if _mqtt_fresh2 else None)
+    hum  = req.humidity    if req.humidity    is not None else (node_sensor.get("humidity")    if _mqtt_fresh2 else None)
     # 無 MQTT 數據時使用預設環境值（室溫 25°C、濕度 65%），不中斷評估
     using_default_sensor = False
     if temp is None or hum is None:
@@ -1307,10 +1330,9 @@ async def predict(req: PredictRequest):
             "storage_time": req.storage_time,
         },
         "using_default_sensor": using_default_sensor,
-        "sensor_source": "default (25°C/65%)" if using_default_sensor else "mqtt",
+        "sensor_source": "default (25°C/65%)" if using_default_sensor
+                         else ("manual" if req.temperature is not None or req.humidity is not None else "mqtt"),
     }
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # 公開報價牌 API（免登入）
 # ═══════════════════════════════════════════════════════════════════════════════

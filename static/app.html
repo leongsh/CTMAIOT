@@ -1718,11 +1718,15 @@ function showResult(d) {
   const sensorNotice = document.getElementById('sensor-source-notice');
   if (sensorNotice) {
     if (d.using_default_sensor) {
-      sensorNotice.textContent = '⚠️ 未收到 MQTT 數據，使用預設環境值（25°C / 65%）進行計算';
+      sensorNotice.textContent = '⚠️ IoT 設備未連線，使用預設環境值（25°C / 65%）進行計算';
       sensorNotice.style.display = 'block';
       sensorNotice.style.color = '#f59e0b';
+    } else if (d.sensor_source === 'manual') {
+      sensorNotice.textContent = '✏️ 使用手動輸入的感測器數據';
+      sensorNotice.style.display = 'block';
+      sensorNotice.style.color = '#60a5fa';
     } else {
-      sensorNotice.textContent = '✅ 使用即時 MQTT 感測器數據';
+      sensorNotice.textContent = '📡 使用即時 MQTT 感測器數據（10 分鐘內）';
       sensorNotice.style.display = 'block';
       sensorNotice.style.color = '#22c55e';
     }
