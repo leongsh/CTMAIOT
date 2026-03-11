@@ -323,8 +323,18 @@ def calculate_quality(
     result.dsl_formula     = calc_dsl(result.quality_formula, result.k_comp)
 
     # ── Step 2：AI 品質分數（若 AI 可用）──────────────────────────────────
+    # 問題：quality_formula 有效範圍是 Q_threshold(70) ~ Q0(97)（只有 27 分）
+    #       若直接用 quality_ai = 100 - ai_spoilage（0~100），加權後會把
+    #       quality_combined 拉低到閾值 70 以下，導致 DSL_combined = 0
+    # 修正：將 quality_ai 正規化到與論文公式相同的有效範圍 [Q_threshold, Q0]
+    #       Q_AI_norm = Q_threshold + (1 - ai_spoilage/100) × (Q0 - Q_threshold)
+    #                 = 70 + (1 - ai_spoilage/100) × 27
+    #       ai_spoilage=0   → Q_AI_norm=97（最新鮮，與論文 Q₀ 對齊）
+    #       ai_spoilage=100 → Q_AI_norm=70（最腐敗，與論文閾值對齊）
     if ai_spoilage is not None:
-        result.quality_ai = max(0.0, min(100.0, 100.0 - ai_spoilage))
+        q_range = result.q0_effective - Q_THRESHOLD   # 有效範圍寬度（通常 ≈ 27）
+        result.quality_ai = Q_THRESHOLD + (1.0 - ai_spoilage / 100.0) * q_range
+        result.quality_ai = max(Q_THRESHOLD, min(result.q0_effective, result.quality_ai))
         result.alpha_used = ALPHA_FORMULA
     else:
         result.quality_ai = None
