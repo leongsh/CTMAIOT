@@ -148,13 +148,22 @@ model_registry: dict = {
 }
 os.makedirs(MODEL_BACKUP_DIR, exist_ok=True)
 
-# ─── 圖像前處理 ──────────────────────────────────────────────────────────────
-infer_transform = transforms.Compose([
-    transforms.Resize((IMG_HEIGHT, IMG_WIDTH)),
-    transforms.ToTensor(),
-])
+# ─── 圖像前處理 ────────────────────────────────────────────────────────────────────────────
+# 使用手動轉換避免 torchvision.transforms.ToTensor() 內部使用 numpy，
+# 在 Render 的 Docker 環境中 torchvision 無法使用 numpy 導致 RuntimeError: Numpy is not available
+def _pil_to_tensor(img: Image.Image) -> torch.Tensor:
+    """PIL Image -> float32 tensor [C, H, W] in [0, 1], 不依賴 numpy"""
+    img = img.resize((IMG_WIDTH, IMG_HEIGHT), Image.BILINEAR)
+    # 將 PIL Image 轉換為 bytes，再用 torch.frombuffer 建立 tensor
+    raw = img.tobytes()  # bytes
+    tensor = torch.frombuffer(bytearray(raw), dtype=torch.uint8)
+    # reshape [H, W, C] -> [C, H, W]
+    tensor = tensor.reshape(IMG_HEIGHT, IMG_WIDTH, 3).permute(2, 0, 1)
+    return tensor.float() / 255.0
 
-# ─── MQTT 背景訂閱 ───────────────────────────────────────────────────────────
+def infer_transform(img: Image.Image) -> torch.Tensor:
+    return _pil_to_tensor(img)
+# ─── MQTT 背景訂閱 ───────────────────────────────────────────────────────────────────
 def _refresh_mqtt_topic_map():
     """從資料庫更新 MQTT 主題→node_id 對應表（只在連線時或節點變更時呼叫）"""
     global _mqtt_topic_map
@@ -331,15 +340,14 @@ def run_ai_inference_for_node(node_id: str, node: dict) -> dict | None:
         # 優先從節點設定讀取已儲存天數，其次從 ai_cache，預設 1.0
         storage_days  = float(node.get("days_stored") or ai_cache.get(node_id, {}).get("storage_days") or 1.0)
         storage_hours = storage_days * 24.0
-        raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
+        raw_sensor    = [[float(temp), float(model_hum), float(storage_hours)]]
         scaled_sensor = scaler.transform(raw_sensor)
-        sensor_tensor = torch.tensor(scaled_sensor, dtype=torch.float32).to(DEVICE)
-
+        sensor_tensor = torch.tensor(scaled_sensor.tolist(), dtype=torch.float32).to(DEVICE)
         with torch.no_grad():
             prediction = model_ai(img_tensor, sensor_tensor).item()
         # 訓練標籤範圍是 1–20，縮放到 0–100
         # 公式：spoilage = (raw_output - 1) / (20 - 1) * 100
-        raw_clipped = float(np.clip(prediction, 1.0, 20.0))
+        raw_clipped = float(max(1.0, min(20.0, prediction)))
         spoilage = (raw_clipped - 1.0) / 19.0 * 100.0
         logger.info("AI inference [%s] raw_output=%.4f -> spoilage=%.2f%%", node_id, prediction, spoilage)
     except Exception as e:
@@ -1433,34 +1441,15 @@ async def _predict_impl(req: PredictRequest):
         raise
     model_hum     = hum / 100.0 if hum > 1.0 else hum
     storage_hours = req.storage_time * 24.0
-    try:
-        raw_sensor = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
-        logger.info("/api/predict step1: np.array OK")
-    except Exception as _e1:
-        logger.error("/api/predict step1 np.array error: %s", _e1)
-        raise
-    try:
-        scaled_sensor = scaler.transform(raw_sensor)
-        logger.info("/api/predict step2: scaler.transform OK")
-    except Exception as _e2:
-        logger.error("/api/predict step2 scaler.transform error: %s", _e2)
-        raise
-    try:
-        sensor_tensor = torch.tensor(scaled_sensor.tolist(), dtype=torch.float32).to(DEVICE)
-        logger.info("/api/predict step3: torch.tensor OK")
-    except Exception as _e3:
-        logger.error("/api/predict step3 torch.tensor error: %s", _e3)
-        raise
-    try:
-        with torch.no_grad():
-            prediction = model_ai(img_tensor, sensor_tensor).item()
-        logger.info("/api/predict step4: model inference OK")
-    except Exception as _e4:
-        logger.error("/api/predict step4 model inference error: %s", _e4)
-        raise
+    # 使用純 Python list 避免 np.array，避免 Render 上 numpy 不可用的問題
+    raw_sensor    = [[float(temp), float(model_hum), float(storage_hours)]]
+    scaled_sensor = scaler.transform(raw_sensor)
+    sensor_tensor = torch.tensor(scaled_sensor.tolist(), dtype=torch.float32).to(DEVICE)
+    with torch.no_grad():
+        prediction = model_ai(img_tensor, sensor_tensor).item()
     # 訓練標籤範圍是 1–20，縮放到 0–100
     # 公式：spoilage = (raw_output - 1) / (20 - 1) * 100
-    raw_clipped = float(np.clip(prediction, 1.0, 20.0))
+    raw_clipped = float(max(1.0, min(20.0, prediction)))
     spoilage = (raw_clipped - 1.0) / 19.0 * 100.0
     logger.info("/api/predict raw_output=%.4f -> spoilage=%.2f%%", prediction, spoilage)
 
