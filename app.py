@@ -1426,7 +1426,11 @@ async def _predict_impl(req: PredictRequest):
         # 相機失敗時使用空白圖片繼續推理（不中斷評估）
         image = Image.new("RGB", (224, 224), color=(128, 128, 128))
 
-    img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
+    try:
+        img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
+    except Exception as _img_err:
+        logger.error("/api/predict img_tensor error: %s", _img_err)
+        raise
     model_hum     = hum / 100.0 if hum > 1.0 else hum
     storage_hours = req.storage_time * 24.0
     raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
