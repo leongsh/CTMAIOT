@@ -700,11 +700,19 @@ async def get_me(current_user: dict = Depends(get_current_user)):
 
 @app.get("/api/auth/users")
 async def list_users(admin: dict = Depends(require_admin)):
+    from database import _to_hkt_str as _to_hkt
     with get_db() as conn:
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT id, username, role, display_name, created_at, last_login FROM users ORDER BY id")
         rows = cur.fetchall()
-    return [dict(r) for r in rows]
+    result = []
+    for r in rows:
+        d = dict(r)
+        for ts_col in ('last_login', 'created_at'):
+            if d.get(ts_col) is not None and not isinstance(d[ts_col], str):
+                d[ts_col] = _to_hkt(d[ts_col])
+        result.append(d)
+    return result
 
 
 @app.post("/api/auth/users")

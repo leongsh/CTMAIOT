@@ -192,7 +192,9 @@ def calc_f_H(humidity: float, rh_min: float, rh_max: float) -> float:
 
 
 def calc_f_L(light_lux: float) -> float:
-    """光照影響函數 f_L(L)"""
+    """光照影響函數 f_L(L)，None 時使用標準光照（f_L=1.0）"""
+    if light_lux is None:
+        return 1.0  # 無光照數據時使用標準值
     baseline_lux = 500.0
     if light_lux <= 0:
         return 0.85
@@ -201,7 +203,9 @@ def calc_f_L(light_lux: float) -> float:
 
 
 def calc_f_A(air_velocity: float) -> float:
-    """氣流影響函數 f_A(A)"""
+    """氣流影響函數 f_A(A)，None 時使用標準氣流（f_A=1.0）"""
+    if air_velocity is None:
+        return 1.0  # 無氣流數據時使用標準值
     if air_velocity < 0.1:
         return 1.0 + 0.5 * (0.1 - air_velocity) / 0.1
     elif air_velocity > 1.0:
@@ -427,8 +431,8 @@ def quality_result_to_dict(r: QualityResult, base_price: float = 100.0) -> dict:
         "sensor": {
             "temperature":  round(r.temperature, 1),
             "humidity":     round(r.humidity, 1),
-            "light_lux":    round(r.light_lux, 0),
-            "air_velocity": round(r.air_velocity, 2),
+            "light_lux":    round(r.light_lux, 0) if r.light_lux is not None else None,
+            "air_velocity": round(r.air_velocity, 2) if r.air_velocity is not None else None,
             "storage_days": r.storage_days,
         },
 

@@ -272,7 +272,14 @@ def get_user(username: str):
         cur = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("SELECT * FROM users WHERE username=%s", (username,))
         row = cur.fetchone()
-    return dict(row) if row else None
+    if not row:
+        return None
+    d = dict(row)
+    # last_login 和 created_at 可能是 datetime 物件，轉為 HKT 字串
+    for ts_col in ('last_login', 'created_at'):
+        if d.get(ts_col) is not None and not isinstance(d[ts_col], str):
+            d[ts_col] = _to_hkt_str(d[ts_col])
+    return d
 
 
 def _serialize_node(row: dict) -> dict:
@@ -469,8 +476,12 @@ def get_dashboard_stats():
             JOIN nodes n ON p.node_id = n.node_id
             ORDER BY p.recorded_at DESC LIMIT 10
         """)
-        stats["recent_predictions"] = [dict(r) for r in cur.fetchall()]
-
+        recent_preds = []
+        for r in cur.fetchall():
+            d = dict(r)
+            d['recorded_at'] = _to_hkt_str(d.get('recorded_at'))
+            recent_preds.append(d)
+        stats["recent_predictions"] = recent_preds
     return stats
 
 
