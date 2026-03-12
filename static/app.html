@@ -889,7 +889,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initMap();
   await loadNodes();
   setInterval(loadNodes, 15000);
-  setInterval(refreshCamera, 5000);
+  setInterval(refreshCamera, 4500); // 與後端預取間隔對齊，確保快取命中（預取=4s, TTL=10s）
   initSidebarResizer();
 });
 
@@ -1488,22 +1488,20 @@ function refreshCamera() {
   const img = document.getElementById('assess-camera');
   const tsEl = document.getElementById('camera-ts');
 
-  // 顯示載入中狀態
+  // 直接替換 img.src（不用 Double Buffering）
+  // 用戶立即看到新圖片開始載入（漸進顯示），而非等待完成才切換
   tsEl.textContent = '載入中…';
-  img.style.opacity = '0.5';
-
-  // 統一使用後端快取代理（已有背景預取，通常 < 100ms 回應）
-  const newImg = new Image();
-  newImg.onload = () => {
-    img.src = newImg.src;
+  img.style.opacity = '0.7';
+  const url = `/api/image?node_id=${nodeId}&_t=${Date.now()}`;
+  img.onload = () => {
     img.style.opacity = '1';
     tsEl.textContent = new Date().toLocaleTimeString('zh-TW');
   };
-  newImg.onerror = () => {
+  img.onerror = () => {
     img.style.opacity = '1';
     tsEl.textContent = '相機無法連線';
   };
-  newImg.src = `/api/image?node_id=${nodeId}&_t=${Date.now()}`;
+  img.src = url;
 }
 
 // ── 相機串流模式切換 ──────────────────────────────────────────────────────────────────────────────
@@ -2123,19 +2121,19 @@ function ctrlRefreshCamera() {
 
   ts.textContent = '載入中…';
 
-  // 統一使用後端快取代理（已有背景預取，通常 < 100ms 回應）
-  const newImg = new Image();
-  newImg.onload = () => {
-    img.src = newImg.src;
+  // 直接替換 img.src（不用 Double Buffering）
+  // 用戶立即看到新圖片開始載入（漸進顯示），而非等待完成才切換
+  const ctrlUrl = `/api/image?node_id=${nodeId}&_t=${Date.now()}`;
+  img.onload = () => {
     ts.textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW')}`;
     liveDot.style.background = '#22c55e';
     liveDot.style.boxShadow = '0 0 5px rgba(34,197,94,.6)';
   };
-  newImg.onerror = () => {
+  img.onerror = () => {
     ts.textContent = '相機無法連線';
     liveDot.style.background = '#ef4444';
   };
-  newImg.src = `/api/image?node_id=${nodeId}&_t=${Date.now()}`;
+  img.src = ctrlUrl;
 }
 
 // ── 遠端控制節點選擇 ──────────────────────────────────────────────────────────

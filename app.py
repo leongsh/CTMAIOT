@@ -126,7 +126,8 @@ ai_cache: dict = {}
 
 # 相機圖片快取：{node_id: {data: bytes, timestamp: float, content_type: str}}
 # 後端定期抓取圖片並快取，前端請求時直接回傳快取內容（不需再等待 M5Stack）
-CAMERA_CACHE_TTL = 30  # 快取有效期（秒），30 秒內重複請求直接回傳快取
+CAMERA_PREFETCH_INTERVAL = 4   # 預取間隔（秒）：背景執行緒每 X 秒向相機抓取一次
+CAMERA_CACHE_TTL = 10          # 快取有效期（秒）：必須 > CAMERA_PREFETCH_INTERVAL，避免空窗期
 camera_cache: dict = {}  # {node_id: {"data": bytes, "ts": float}}
 
 # DATABASE_URL 已在上方 import 中引入
@@ -574,34 +575,46 @@ def _keep_alive_loop():
         time.sleep(14 * 60)  # 每 14 分鐘
 
 
-def _camera_prefetch_loop():
-    """背景執行緒：每 5 秒主動向所有節點的相機抓取圖片並存入 camera_cache
-    讓前端請求 /api/image 時直接命中快取，避免等待 M5Stack 回應（約 2 秒）
-    """
+def _fetch_single_camera(nid: str, cam_url: str):
+    """抓取單一節點相機圖片，結果存入 camera_cache（由 ThreadPoolExecutor 並行呼叫）"""
     import requests as _req
+    try:
+        resp = _req.get(cam_url, timeout=5)  # 超時設為 5 秒，不造成其他節點阻塞
+        if resp.status_code == 200 and resp.content:
+            camera_cache[nid] = {"data": resp.content, "ts": time.time()}
+            logger.debug("Camera prefetch [%s] OK, %d bytes", nid, len(resp.content))
+    except Exception as e:
+        logger.debug("Camera prefetch [%s] failed: %s", nid, e)
+
+
+def _camera_prefetch_loop():
+    """
+    背景執行緒：每 CAMERA_PREFETCH_INTERVAL 秒並行抓取所有節點相機圖片
+    - 使用 ThreadPoolExecutor 並行，單節點超時不會阻塞其他節點
+    - TTL > 預取間隔，確保快取永遠有效，消除空窗期
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from database import get_all_nodes as _get_all_nodes
     # 等待服務完全啟動並載入節點資料
     time.sleep(15)
-    logger.info("Camera prefetch loop started")
+    logger.info("Camera prefetch loop started (interval=%ds, TTL=%ds)",
+                CAMERA_PREFETCH_INTERVAL, CAMERA_CACHE_TTL)
     while True:
         try:
-            # 取得所有節點（從資料庫讀取）
-            from database import get_all_nodes as _get_all_nodes
             all_nodes = _get_all_nodes()
+            tasks = []
             for node in all_nodes:
                 nid = node.get("node_id")
                 cam_url = node.get("camera_url") or CAMERA_URL
-                if not cam_url:
-                    continue
-                try:
-                    resp = _req.get(cam_url, timeout=6)
-                    if resp.status_code == 200 and resp.content:
-                        camera_cache[nid] = {"data": resp.content, "ts": time.time()}
-                        logger.debug("Camera prefetch [%s] OK, %d bytes", nid, len(resp.content))
-                except Exception as e:
-                    logger.debug("Camera prefetch [%s] failed: %s", nid, e)
+                if cam_url:
+                    tasks.append((nid, cam_url))
+            if tasks:
+                # 並行抓取，最多 8 個執行緒同時執行
+                with ThreadPoolExecutor(max_workers=min(8, len(tasks))) as pool:
+                    pool.map(lambda t: _fetch_single_camera(*t), tasks)
         except Exception as e:
             logger.debug("Camera prefetch loop error: %s", e)
-        time.sleep(3)  # 每 3 秒預取一次，確保快取永遠新鮮
+        time.sleep(CAMERA_PREFETCH_INTERVAL)  # 每 CAMERA_PREFETCH_INTERVAL 秒預取一次
 
 
 @app.get("/api/health")
