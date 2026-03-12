@@ -1433,12 +1433,31 @@ async def _predict_impl(req: PredictRequest):
         raise
     model_hum     = hum / 100.0 if hum > 1.0 else hum
     storage_hours = req.storage_time * 24.0
-    raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
-    scaled_sensor = scaler.transform(raw_sensor)
-    # .tolist() 避免在 async 環境中 torch.tensor 接收 numpy array 時的兼容性問題
-    sensor_tensor = torch.tensor(scaled_sensor.tolist(), dtype=torch.float32).to(DEVICE)
-    with torch.no_grad():
-        prediction = model_ai(img_tensor, sensor_tensor).item()
+    try:
+        raw_sensor = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
+        logger.info("/api/predict step1: np.array OK")
+    except Exception as _e1:
+        logger.error("/api/predict step1 np.array error: %s", _e1)
+        raise
+    try:
+        scaled_sensor = scaler.transform(raw_sensor)
+        logger.info("/api/predict step2: scaler.transform OK")
+    except Exception as _e2:
+        logger.error("/api/predict step2 scaler.transform error: %s", _e2)
+        raise
+    try:
+        sensor_tensor = torch.tensor(scaled_sensor.tolist(), dtype=torch.float32).to(DEVICE)
+        logger.info("/api/predict step3: torch.tensor OK")
+    except Exception as _e3:
+        logger.error("/api/predict step3 torch.tensor error: %s", _e3)
+        raise
+    try:
+        with torch.no_grad():
+            prediction = model_ai(img_tensor, sensor_tensor).item()
+        logger.info("/api/predict step4: model inference OK")
+    except Exception as _e4:
+        logger.error("/api/predict step4 model inference error: %s", _e4)
+        raise
     # 訓練標籤範圍是 1–20，縮放到 0–100
     # 公式：spoilage = (raw_output - 1) / (20 - 1) * 100
     raw_clipped = float(np.clip(prediction, 1.0, 20.0))
