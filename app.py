@@ -1363,6 +1363,16 @@ class PredictRequest(BaseModel):
 
 @app.post("/api/predict")
 async def predict(req: PredictRequest):
+    try:
+        return await _predict_impl(req)
+    except HTTPException:
+        raise
+    except Exception as _e:
+        import traceback
+        logger.error("/api/predict unhandled error: %s\n%s", _e, traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"predict error: {_e}")
+
+async def _predict_impl(req: PredictRequest):
     if model_ai is None or scaler is None:
         raise HTTPException(status_code=503, detail="Model not ready")
 
