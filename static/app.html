@@ -1484,25 +1484,24 @@ async function deleteNode() {
 function refreshCamera() {
   const nodeId = selectedNodeId || 'NODE_ISM_001';
   const img = document.getElementById('assess-camera');
-  document.getElementById('camera-ts').textContent = new Date().toLocaleTimeString('zh-TW');
+  const tsEl = document.getElementById('camera-ts');
 
-  // 尚未選擇節點時，使用代理
-  const node = nodes.find(n => n.node_id === nodeId);
-  const camUrl = node && node.camera_url ? node.camera_url : null;
+  // 顯示載入中狀態
+  tsEl.textContent = '載入中…';
+  img.style.opacity = '0.5';
 
-  if (camUrl) {
-    // 直接載入相機 URL（加時間戳避免快取）
-    const directUrl = camUrl.includes('?') ? `${camUrl}&_t=${Date.now()}` : `${camUrl}?_t=${Date.now()}`;
-    img.onerror = () => {
-      // 直接載入失敗時回退到代理
-      img.onerror = null;
-      img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
-    };
-    img.src = directUrl;
-  } else {
-    // 無 camera_url 時使用代理
-    img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
-  }
+  // 統一使用後端快取代理（已有背景預取，通常 < 100ms 回應）
+  const newImg = new Image();
+  newImg.onload = () => {
+    img.src = newImg.src;
+    img.style.opacity = '1';
+    tsEl.textContent = new Date().toLocaleTimeString('zh-TW');
+  };
+  newImg.onerror = () => {
+    img.style.opacity = '1';
+    tsEl.textContent = '相機無法連線';
+  };
+  newImg.src = `/api/image?node_id=${nodeId}&_t=${Date.now()}`;
 }
 
 // ── 品質評估 ──────────────────────────────────────────────────────────────────
@@ -2070,26 +2069,21 @@ function ctrlRefreshCamera() {
   if (placeholder) placeholder.style.display = 'none';
   liveDot.style.background = '#eab308'; // 黃色表示載入中
 
-  ts.textContent = '載入中...';
-  const node = nodes.find(n => n.node_id === nodeId);
-  const camUrl = node && node.camera_url ? node.camera_url : null;
+  ts.textContent = '載入中…';
 
-  if (camUrl) {
-    const directUrl = camUrl.includes('?') ? `${camUrl}&_t=${Date.now()}` : `${camUrl}?_t=${Date.now()}`;
-    img.onerror = () => {
-      img.onerror = null;
-      img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
-    };
-    img.src = directUrl;
-  } else {
-    img.src = `/api/image?node_id=${nodeId}&t=${Date.now()}`;
-  }
-
-  img.onload = () => {
+  // 統一使用後端快取代理（已有背景預取，通常 < 100ms 回應）
+  const newImg = new Image();
+  newImg.onload = () => {
+    img.src = newImg.src;
     ts.textContent = `更新於 ${new Date().toLocaleTimeString('zh-TW')}`;
-    liveDot.style.background = '#22c55e'; // 綠色表示成功
+    liveDot.style.background = '#22c55e';
     liveDot.style.boxShadow = '0 0 5px rgba(34,197,94,.6)';
   };
+  newImg.onerror = () => {
+    ts.textContent = '相機無法連線';
+    liveDot.style.background = '#ef4444';
+  };
+  newImg.src = `/api/image?node_id=${nodeId}&_t=${Date.now()}`;
 }
 
 // ── 遠端控制節點選擇 ──────────────────────────────────────────────────────────

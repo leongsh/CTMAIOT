@@ -124,6 +124,11 @@ scaler = None
 # AI 推理結果快取：{node_id: {spoilage, label, color, timestamp, quality_data}}
 ai_cache: dict = {}
 
+# 相機圖片快取：{node_id: {data: bytes, timestamp: float, content_type: str}}
+# 後端定期抓取圖片並快取，前端請求時直接回傳快取內容（不需再等待 M5Stack）
+CAMERA_CACHE_TTL = 3   # 快取有效期（秒），3 秒內重複請求直接回傳快取
+camera_cache: dict = {}  # {node_id: {"data": bytes, "ts": float}}
+
 # DATABASE_URL 已在上方 import 中引入
 
 # 模型版本管理
@@ -538,6 +543,11 @@ async def startup():
     ka_thread.start()
     logger.info("Keep-alive thread started")
 
+    # 啟動相機圖片背景預取執行緒（每 5 秒預取一次，讓前端請求時直接命中快取）
+    cam_prefetch_thread = threading.Thread(target=_camera_prefetch_loop, daemon=True)
+    cam_prefetch_thread.start()
+    logger.info("Camera prefetch thread started (interval=5s)")
+
 
 # ─── Keep-Alive（防止 Render 免費方案 15 分鐘冷啟動）────────────────────────────
 def _keep_alive_loop():
@@ -562,6 +572,36 @@ def _keep_alive_loop():
         except Exception as e:
             logger.debug("Keep-alive ping failed: %s", e)
         time.sleep(14 * 60)  # 每 14 分鐘
+
+
+def _camera_prefetch_loop():
+    """背景執行緒：每 5 秒主動向所有節點的相機抓取圖片並存入 camera_cache
+    讓前端請求 /api/image 時直接命中快取，避免等待 M5Stack 回應（約 2 秒）
+    """
+    import requests as _req
+    # 等待服務完全啟動並載入節點資料
+    time.sleep(15)
+    logger.info("Camera prefetch loop started")
+    while True:
+        try:
+            # 取得所有節點（從資料庫讀取）
+            from database import get_all_nodes as _get_all_nodes
+            all_nodes = _get_all_nodes()
+            for node in all_nodes:
+                nid = node.get("node_id")
+                cam_url = node.get("camera_url") or CAMERA_URL
+                if not cam_url:
+                    continue
+                try:
+                    resp = _req.get(cam_url, timeout=6)
+                    if resp.status_code == 200 and resp.content:
+                        camera_cache[nid] = {"data": resp.content, "ts": time.time()}
+                        logger.debug("Camera prefetch [%s] OK, %d bytes", nid, len(resp.content))
+                except Exception as e:
+                    logger.debug("Camera prefetch [%s] failed: %s", nid, e)
+        except Exception as e:
+            logger.debug("Camera prefetch loop error: %s", e)
+        time.sleep(5)  # 每 5 秒預取一次
 
 
 @app.get("/api/health")
@@ -1033,17 +1073,60 @@ async def proxy_image(node_id: str = "A01"):
     cam_url = (node.get("camera_url") or CAMERA_URL) if node else CAMERA_URL
     if not cam_url:
         cam_url = CAMERA_URL
+
+    # 檢查記憶體快取（TTL = 3 秒）
+    cached = camera_cache.get(node_id)
+    if cached and (time.time() - cached["ts"]) < CAMERA_CACHE_TTL:
+        logger.debug("/api/image [%s] cache HIT (age=%.1fs)", node_id, time.time() - cached["ts"])
+        return StreamingResponse(
+            io.BytesIO(cached["data"]),
+            media_type="image/jpeg",
+            headers={"Cache-Control": "no-store", "X-Cache": "HIT"},
+        )
+
+    # 快取未命中，向 M5Stack 抓取新圖片
     try:
         async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.get(cam_url)
             resp.raise_for_status()
+        img_data = resp.content
+        # 儲存到記憶體快取
+        camera_cache[node_id] = {"data": img_data, "ts": time.time()}
+        logger.debug("/api/image [%s] cache MISS, fetched %d bytes", node_id, len(img_data))
         return StreamingResponse(
-            io.BytesIO(resp.content),
+            io.BytesIO(img_data),
             media_type="image/jpeg",
-            headers={"Cache-Control": "no-store"},
+            headers={"Cache-Control": "no-store", "X-Cache": "MISS"},
         )
     except Exception as e:
+        # 抓取失敗時，若有舊快取則回傳舊圖片（不要讓前端看到空白）
+        if cached:
+            logger.warning("/api/image [%s] fetch failed, returning stale cache: %s", node_id, e)
+            return StreamingResponse(
+                io.BytesIO(cached["data"]),
+                media_type="image/jpeg",
+                headers={"Cache-Control": "no-store", "X-Cache": "STALE"},
+            )
         raise HTTPException(status_code=502, detail="Camera fetch failed: {}".format(e))
+
+
+@app.get("/api/image/prefetch")
+async def prefetch_image(node_id: str = "A01"):
+    """後端主動預取相機圖片到快取，前端呼叫後立即再呼叫 /api/image 即可得到快取圖片"""
+    node = get_node(node_id)
+    cam_url = (node.get("camera_url") or CAMERA_URL) if node else CAMERA_URL
+    if not cam_url:
+        cam_url = CAMERA_URL
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(cam_url)
+            resp.raise_for_status()
+        camera_cache[node_id] = {"data": resp.content, "ts": time.time()}
+        logger.info("/api/image/prefetch [%s] OK, %d bytes cached", node_id, len(resp.content))
+        return JSONResponse({"status": "ok", "size": len(resp.content), "node_id": node_id})
+    except Exception as e:
+        logger.warning("/api/image/prefetch [%s] failed: %s", node_id, e)
+        return JSONResponse({"status": "error", "detail": str(e)}, status_code=502)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
