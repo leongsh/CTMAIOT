@@ -331,12 +331,13 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
         </div>
 
         <div class="assess-section">
-          <div class="assess-title">相機畫面</div>
+          <div class="assess-title">相機畫面 <span id="assess-cam-mode-badge" style="font-size:.65rem;background:#1e3a5f;color:#7dd3fc;padding:2px 6px;border-radius:4px;margin-left:6px">載入中…</span></div>
           <div class="camera-wrap">
             <img id="assess-camera" src="" alt="相機畫面" style="min-height:120px"/>
             <div class="camera-footer">
               <span id="camera-ts">--</span>
-              <button class="btn-nav" onclick="refreshCamera()" style="padding:3px 8px;font-size:.68rem">重新整理</button>
+              <button class="btn-nav" onclick="refreshCamera()" style="padding:3px 8px;font-size:.68rem">🔄 重新整理</button>
+              <button class="btn-nav" id="btn-cam-stream" onclick="toggleCameraStream('assess')" style="padding:3px 8px;font-size:.68rem;background:#1e3a5f">📡 即時串流</button>
             </div>
           </div>
         </div>
@@ -641,6 +642,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:#e2e
                   📷 相機畫面
                 </div>
                 <button class="btn-nav" style="padding:3px 10px;font-size:.65rem" onclick="ctrlRefreshCamera()">🔄 重新整理</button>
+                <button class="btn-nav" id="btn-ctrl-cam-stream" onclick="toggleCameraStream('ctrl')" style="padding:3px 10px;font-size:.65rem;background:#1e3a5f">📡 即時串流</button>
               </div>
               <div class="ctrl-camera-img-wrap" id="ctrl-cam-wrap">
                 <div class="ctrl-camera-placeholder" id="ctrl-cam-placeholder">
@@ -1504,7 +1506,57 @@ function refreshCamera() {
   newImg.src = `/api/image?node_id=${nodeId}&_t=${Date.now()}`;
 }
 
-// ── 品質評估 ──────────────────────────────────────────────────────────────────
+// ── 相機串流模式切換 ──────────────────────────────────────────────────────────────────────────────
+// cameraStreamMode: { assess: false, ctrl: false }
+const cameraStreamMode = { assess: false, ctrl: false };
+
+function toggleCameraStream(panel) {
+  const nodeId = selectedNodeId || 'NODE_ISM_001';
+  const isAssess = panel === 'assess';
+  const imgId = isAssess ? 'assess-camera' : 'ctrl-camera-img';
+  const btnId = isAssess ? 'btn-cam-stream' : 'btn-ctrl-cam-stream';
+  const tsId  = isAssess ? 'camera-ts' : 'ctrl-cam-ts';
+  const badgeId = isAssess ? 'assess-cam-mode-badge' : null;
+
+  const img  = document.getElementById(imgId);
+  const btn  = document.getElementById(btnId);
+  const tsEl = document.getElementById(tsId);
+
+  cameraStreamMode[panel] = !cameraStreamMode[panel];
+
+  if (cameraStreamMode[panel]) {
+    // 開啟 MJPEG 串流模式
+    const streamUrl = `/api/image/stream?node_id=${nodeId}`;
+    if (!isAssess) {
+      // 遠端控制頁面需要顯示圖片
+      img.style.display = 'block';
+      const ph = document.getElementById('ctrl-cam-placeholder');
+      if (ph) ph.style.display = 'none';
+    }
+    img.src = streamUrl;
+    btn.textContent = '⏹ 停止串流';
+    btn.style.background = '#7f1d1d';
+    tsEl.textContent = '📡 即時串流中…';
+    if (badgeId) {
+      const badge = document.getElementById(badgeId);
+      if (badge) { badge.textContent = '📡 即時串流'; badge.style.background = '#14532d'; badge.style.color = '#86efac'; }
+    }
+  } else {
+    // 關閉串流，回到快取模式
+    img.src = '';
+    btn.textContent = '📡 即時串流';
+    btn.style.background = '#1e3a5f';
+    tsEl.textContent = '已停止串流';
+    if (badgeId) {
+      const badge = document.getElementById(badgeId);
+      if (badge) { badge.textContent = '快取模式'; badge.style.background = '#1e3a5f'; badge.style.color = '#7dd3fc'; }
+    }
+    // 立即抓取一張最新圖片
+    if (isAssess) refreshCamera(); else ctrlRefreshCamera();
+  }
+}
+
+// ── 品質評估 ──────────────────────────────────────────────────────────────────────────────
 function toggleManual() {
   manualMode = !manualMode;
   document.getElementById('manual-inputs').style.display = manualMode ? 'block' : 'none';

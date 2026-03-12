@@ -126,7 +126,7 @@ ai_cache: dict = {}
 
 # 相機圖片快取：{node_id: {data: bytes, timestamp: float, content_type: str}}
 # 後端定期抓取圖片並快取，前端請求時直接回傳快取內容（不需再等待 M5Stack）
-CAMERA_CACHE_TTL = 3   # 快取有效期（秒），3 秒內重複請求直接回傳快取
+CAMERA_CACHE_TTL = 30  # 快取有效期（秒），30 秒內重複請求直接回傳快取
 camera_cache: dict = {}  # {node_id: {"data": bytes, "ts": float}}
 
 # DATABASE_URL 已在上方 import 中引入
@@ -601,7 +601,7 @@ def _camera_prefetch_loop():
                     logger.debug("Camera prefetch [%s] failed: %s", nid, e)
         except Exception as e:
             logger.debug("Camera prefetch loop error: %s", e)
-        time.sleep(5)  # 每 5 秒預取一次
+        time.sleep(3)  # 每 3 秒預取一次，確保快取永遠新鮮
 
 
 @app.get("/api/health")
@@ -1108,6 +1108,31 @@ async def proxy_image(node_id: str = "A01"):
                 headers={"Cache-Control": "no-store", "X-Cache": "STALE"},
             )
         raise HTTPException(status_code=502, detail="Camera fetch failed: {}".format(e))
+
+
+@app.get("/api/image/stream")
+async def stream_camera(node_id: str = "A01"):
+    """
+    MJPEG 即時影像串流端點：持續推送相機畫面（每 2 秒一幀）
+    前端只需把 <img src="/api/image/stream?node_id=XXX"> 即可得到持續更新的影像
+    """
+    import asyncio
+
+    async def generate():
+        boundary = b"--frame"
+        while True:
+            # 從快取取得最新圖片
+            cached = camera_cache.get(node_id)
+            if cached and cached.get("data"):
+                frame = cached["data"]
+                yield boundary + b"\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(frame)).encode() + b"\r\n\r\n" + frame + b"\r\n"
+            await asyncio.sleep(2)  # 每 2 秒推送一幀
+
+    return StreamingResponse(
+        generate(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/api/image/prefetch")
