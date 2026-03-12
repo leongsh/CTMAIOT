@@ -1431,7 +1431,8 @@ async def _predict_impl(req: PredictRequest):
     storage_hours = req.storage_time * 24.0
     raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
     scaled_sensor = scaler.transform(raw_sensor)
-    sensor_tensor = torch.tensor(scaled_sensor, dtype=torch.float32).to(DEVICE)
+    # .tolist() 避免在 async 環境中 torch.tensor 接收 numpy array 時的兼容性問題
+    sensor_tensor = torch.tensor(scaled_sensor.tolist(), dtype=torch.float32).to(DEVICE)
     with torch.no_grad():
         prediction = model_ai(img_tensor, sensor_tensor).item()
     # 訓練標籤範圍是 1–20，縮放到 0–100
