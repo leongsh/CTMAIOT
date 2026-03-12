@@ -1427,13 +1427,11 @@ async def _predict_impl(req: PredictRequest):
         image = Image.new("RGB", (224, 224), color=(128, 128, 128))
 
     img_tensor = infer_transform(image).unsqueeze(0).to(DEVICE)
-
     model_hum     = hum / 100.0 if hum > 1.0 else hum
     storage_hours = req.storage_time * 24.0
     raw_sensor    = np.array([[temp, model_hum, storage_hours]], dtype=np.float32)
     scaled_sensor = scaler.transform(raw_sensor)
     sensor_tensor = torch.tensor(scaled_sensor, dtype=torch.float32).to(DEVICE)
-
     with torch.no_grad():
         prediction = model_ai(img_tensor, sensor_tensor).item()
     # 訓練標籤範圍是 1–20，縮放到 0–100
