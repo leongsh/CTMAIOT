@@ -524,9 +524,9 @@ canvas#gaugeChart{width:140px!important;height:140px!important}
             <div class="quality-stat-sub" id="dsl-sub">等待計算…</div>
           </div>
           <div class="quality-stat-item waste">
-            <div class="quality-stat-label">Predicted Waste Rate</div>
+            <div class="quality-stat-label">貨架壽命損耗</div>
             <div class="quality-stat-val orange" id="waste-val">--%</div>
-            <div class="quality-stat-sub" id="waste-sub">基於 DSL 預測</div>
+            <div class="quality-stat-sub" id="waste-sub">壽命消耗比例</div>
           </div>
         </div>
       </div>
@@ -951,7 +951,7 @@ async function fetchAndUpdate() {
       const wasteRate = Math.max(0, Math.min(100, (1 - dsl / initialDsl) * 100));
       document.getElementById('waste-val').textContent = wasteRate.toFixed(1) + '%';
       document.getElementById('waste-sub').textContent =
-        wasteRate < 20 ? '廢棄風險低' : wasteRate < 50 ? '廢棄風險中等' : '廢棄風險高';
+        wasteRate < 20 ? '損耗極低，貨架充裕' : wasteRate < 50 ? '損耗中等，留意補貨' : wasteRate < 80 ? '損耗偏高，建議促銷' : '損耗極高，急需清倉';
 
       // 價格（前端重新計算，避免快取舊值）
       const basePrice  = q.base_price  ?? node.base_price ?? 100;
